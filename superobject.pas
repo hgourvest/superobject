@@ -1470,6 +1470,7 @@ var
   a: TArray<TValue>;
   ps: TArray<TRttiParameter>;
   v: TValue;
+  index: ISuperObject;
 
   function GetParams: Boolean;
   var
@@ -1478,20 +1479,42 @@ var
     case ObjectGetType(params) of
       stArray:
         for i := 0 to Length(ps) - 1 do
-          if not ctx.FromJson(ps[i].ParamType.Handle, params.AsArray[i], a[i]) then
-            Exit(False);
+          if (pfOut in ps[i].Flags) then
+            TValue.Make(nil, ps[i].ParamType.Handle, a[i]) else
+            if not ctx.FromJson(ps[i].ParamType.Handle, params.AsArray[i], a[i]) then
+              Exit(False);
       stObject:
         for i := 0 to Length(ps) - 1 do
-          if not ctx.FromJson(ps[i].ParamType.Handle, params.AsObject[ps[i].Name], a[i]) then
-            Exit(False);
+          if (pfOut in ps[i].Flags) then
+            TValue.Make(nil, ps[i].ParamType.Handle, a[i]) else
+            if not ctx.FromJson(ps[i].ParamType.Handle, params.AsObject[ps[i].Name], a[i]) then
+              Exit(False);
       stNull: ;
     else
       Exit(False);
     end;
     Result := True;
   end;
+
+  procedure SetParams;
+  var
+    i: Integer;
+  begin
+    case ObjectGetType(params) of
+      stArray:
+        for i := 0 to Length(ps) - 1 do
+          if (ps[i].Flags * [pfVar, pfOut]) <> [] then
+            params.AsArray[i] := ctx.ToJson(a[i], index);
+      stObject:
+        for i := 0 to Length(ps) - 1 do
+          if (ps[i].Flags * [pfVar, pfOut]) <> [] then
+            params.AsObject[ps[i].Name] := ctx.ToJson(a[i], index);
+    end;
+  end;
+
 begin
   Result := irSuccess;
+  index := SO;
   case obj.Kind of
     tkClass:
       begin
@@ -1504,11 +1527,13 @@ begin
         if m.IsClassMethod then
         begin
           v := m.Invoke(obj.AsObject.ClassType, a);
-          Return := ctx.ToJson(v, SO);
+          Return := ctx.ToJson(v, index);
+          SetParams;
         end else
         begin
           v := m.Invoke(obj, a);
-          Return := ctx.ToJson(v, SO);
+          Return := ctx.ToJson(v, index);
+          SetParams;
         end;
       end;
     tkClassRef:
@@ -1523,7 +1548,7 @@ begin
         if m.IsClassMethod then
         begin
           v := m.Invoke(obj, a);
-          Return := ctx.ToJson(v, SO);
+          Return := ctx.ToJson(v, index);
         end else
           Exit(irError);
       end;
