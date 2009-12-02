@@ -736,8 +736,10 @@ type
   end;
 
 {$IFDEF VER210}
-  TSerialFromJson = function(const obj: ISuperObject; var Value: TValue): Boolean;
-  TSerialToJson = function(var value: TValue; const index: ISuperObject): ISuperObject;
+  TSuperRttiContext = class;
+
+  TSerialFromJson = function(ctx: TSuperRttiContext; const obj: ISuperObject; var Value: TValue): Boolean;
+  TSerialToJson = function(ctx: TSuperRttiContext; var value: TValue; const index: ISuperObject): ISuperObject;
 
   TSuperRttiContext = class
   public
@@ -1407,17 +1409,17 @@ end;
 
 {$IFDEF VER210}
 
-function serialtoboolean(var value: TValue; const index: ISuperObject): ISuperObject;
+function serialtoboolean(ctx: TSuperRttiContext; var value: TValue; const index: ISuperObject): ISuperObject;
 begin
   Result := TSuperObject.Create(TValueData(value).FAsSLong <> 0);
 end;
 
-function serialtodatetime(var value: TValue; const index: ISuperObject): ISuperObject;
+function serialtodatetime(ctx: TSuperRttiContext; var value: TValue; const index: ISuperObject): ISuperObject;
 begin
   Result := TSuperObject.Create(DelphiToJavaDateTime(TValueData(value).FAsDouble));
 end;
 
-function serialfromboolean(const obj: ISuperObject; var Value: TValue): Boolean;
+function serialfromboolean(ctx: TSuperRttiContext; const obj: ISuperObject; var Value: TValue): Boolean;
 begin
   if ObjectIsType(obj, stBoolean) then
   begin
@@ -1427,7 +1429,7 @@ begin
     Result := False;
 end;
 
-function serialfromdatetime(const obj: ISuperObject; var Value: TValue): Boolean;
+function serialfromdatetime(ctx: TSuperRttiContext; const obj: ISuperObject; var Value: TValue): Boolean;
 begin
   if ObjectIsType(obj, stInt) then
   begin
@@ -6129,7 +6131,7 @@ begin
       end else
       begin
         TValue.Make(nil, TypeInfo, Value);
-        Result := Serial(obj, Value);
+        Result := Serial(Self, obj, Value);
       end;
   end else
     Result := False;
@@ -6313,7 +6315,7 @@ begin
     else
       result := nil;
     end else
-      Result := Serial(value, index);
+      Result := Serial(Self, value, index);
 end;
 
 { TSuperObjectHelper }
