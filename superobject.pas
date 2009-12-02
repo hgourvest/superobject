@@ -5876,7 +5876,6 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
 
   procedure FromClass;
   var
-    r: TRttiType;
     f: TRttiField;
     v: TValue;
   begin
@@ -5885,13 +5884,7 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
         begin
           Result := True;
           if Value.Kind <> tkClass then
-          begin
-            r := Context.FindType(obj.AsObject.S['class']);
-            if r <> nil then
-              Value := TRttiInstanceType(r).MetaclassType.Create else
-              Value := GetTypeData(TypeInfo).ClassType.Create;
-          end;
-
+            Value := GetTypeData(TypeInfo).ClassType.Create;
           for f in Context.GetType(Value.AsObject.ClassType).GetFields do
             if f.FieldType <> nil then
             begin
@@ -6182,8 +6175,6 @@ function TSuperRttiContext.ToJson(var value: TValue; const index: ISuperObject):
       begin
         Result := TSuperObject.Create(stObject);
         index[IntToStr(Integer(Value.AsObject))] := Result;
-        if Value.TypeData.ClassType <> Value.AsObject.ClassType then
-          Result.AsObject.S['class'] := Value.AsObject.UnitName + '.' + Value.AsObject.ClassName;
         for f in Context.GetType(Value.AsObject.ClassType).GetFields do
           if f.FieldType <> nil then
           begin
