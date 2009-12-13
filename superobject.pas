@@ -1551,6 +1551,7 @@ begin
         begin
           v := m.Invoke(obj, a);
           Return := ctx.ToJson(v, index);
+          SetParams;
         end else
           Exit(irError);
       end;
