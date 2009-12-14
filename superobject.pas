@@ -598,7 +598,7 @@ type
     FProcessing: boolean;
     FDataType: TSuperType;
     FDataPtr: Pointer;
-{$if true}
+{.$if true}
     FO: record
       case TSuperType of
         stBoolean: (c_boolean: boolean);
@@ -611,7 +611,7 @@ type
         stMethod: (c_method: TSuperMethod);
 {$ENDIF}
       end;
-{$ifend}
+{.$ifend}
     FOString: SOString;
     function GetDataType: TSuperType;
     function GetDataPtr: Pointer;
@@ -1010,13 +1010,13 @@ var
   limit_day, dayinsecs, weekofmonth: Integer;
   First: Word;
 begin
-  if (date.wMonth < compareDate.wMonth) then
+  if (date^.wMonth < compareDate^.wMonth) then
   begin
     Result := -1; (* We are in a month before the date limit. *)
     Exit;
   end;
 
-  if (date.wMonth > compareDate.wMonth) then
+  if (date^.wMonth > compareDate^.wMonth) then
   begin
     Result := 1; (* We are in a month after the date limit. *)
     Exit;
@@ -1025,24 +1025,24 @@ begin
   (* if year is 0 then date is in day-of-week format, otherwise
    * it's absolute date.
    *)
-  if (compareDate.wYear = 0) then
+  if (compareDate^.wYear = 0) then
   begin
     (* compareDate.wDay is interpreted as number of the week in the month
      * 5 means: the last week in the month *)
-    weekofmonth := compareDate.wDay;
+    weekofmonth := compareDate^.wDay;
     (* calculate the day of the first DayOfWeek in the month *)
-    First := (6 + compareDate.wDayOfWeek - date.wDayOfWeek + date.wDay) mod 7 + 1;
+    First := (6 + compareDate^.wDayOfWeek - date^.wDayOfWeek + date^.wDay) mod 7 + 1;
     limit_day := First + 7 * (weekofmonth - 1);
     (* check needed for the 5th weekday of the month *)
-    if (limit_day > MonthDays[(date.wMonth=2) and IsLeapYear(date.wYear)][date.wMonth - 1]) then
+    if (limit_day > MonthDays[(date^.wMonth=2) and IsLeapYear(date^.wYear)][date^.wMonth - 1]) then
       dec(limit_day, 7);
   end
   else
-    limit_day := compareDate.wDay;
+    limit_day := compareDate^.wDay;
 
   (* convert to seconds *)
-  limit_day := ((limit_day * 24  + compareDate.wHour) * 60 + compareDate.wMinute ) * 60;
-  dayinsecs := ((date.wDay * 24  + date.wHour) * 60 + date.wMinute ) * 60 + date.wSecond;
+  limit_day := ((limit_day * 24  + compareDate^.wHour) * 60 + compareDate^.wMinute ) * 60;
+  dayinsecs := ((date^.wDay * 24  + date^.wHour) * 60 + date^.wMinute ) * 60 + date^.wSecond;
   (* and compare *)
 
   if dayinsecs < limit_day then
@@ -1063,17 +1063,17 @@ var
 begin
   llTime := 0;
 
-  if (pTZinfo.DaylightDate.wMonth <> 0) then
+  if (pTZinfo^.DaylightDate.wMonth <> 0) then
   begin
     (* if year is 0 then date is in day-of-week format, otherwise
      * it's absolute date.
      *)
-    if ((pTZinfo.StandardDate.wMonth = 0) or
-        ((pTZinfo.StandardDate.wYear = 0) and
-        ((pTZinfo.StandardDate.wDay < 1) or
-        (pTZinfo.StandardDate.wDay > 5) or
-        (pTZinfo.DaylightDate.wDay < 1) or
-        (pTZinfo.DaylightDate.wDay > 5)))) then
+    if ((pTZinfo^.StandardDate.wMonth = 0) or
+        ((pTZinfo^.StandardDate.wYear = 0) and
+        ((pTZinfo^.StandardDate.wDay < 1) or
+        (pTZinfo^.StandardDate.wDay > 5) or
+        (pTZinfo^.DaylightDate.wDay < 1) or
+        (pTZinfo^.DaylightDate.wDay > 5)))) then
     begin
       SetLastError(ERROR_INVALID_PARAMETER);
       Result := TIME_ZONE_ID_INVALID;
@@ -1083,15 +1083,15 @@ begin
     if (not islocal) then
     begin
       llTime := PInt64(lpFileTime)^;
-      dec(llTime, Int64(pTZinfo.Bias + pTZinfo.DaylightBias) * 600000000);
+      dec(llTime, Int64(pTZinfo^.Bias + pTZinfo^.DaylightBias) * 600000000);
       PInt64(@ftTemp)^ := llTime;
       lpFileTime := @ftTemp;
     end;
 
-    FileTimeToSystemTime(lpFileTime^, &SysTime);
+    FileTimeToSystemTime(lpFileTime^, SysTime);
 
     (* check for daylight savings *)
-    ret := DayLightCompareDate(@SysTime, @pTZinfo.StandardDate);
+    ret := DayLightCompareDate(@SysTime, @pTZinfo^.StandardDate);
     if (ret = -2) then
     begin
       Result := TIME_ZONE_ID_INVALID;
@@ -1102,12 +1102,12 @@ begin
 
     if (not islocal) then
     begin
-      dec(llTime, Int64(pTZinfo.StandardBias - pTZinfo.DaylightBias) * 600000000);
+      dec(llTime, Int64(pTZinfo^.StandardBias - pTZinfo^.DaylightBias) * 600000000);
       PInt64(@ftTemp)^ := llTime;
       FileTimeToSystemTime(lpFileTime^, SysTime);
     end;
 
-    ret := DayLightCompareDate(@SysTime, @pTZinfo.DaylightDate);
+    ret := DayLightCompareDate(@SysTime, @pTZinfo^.DaylightDate);
     if (ret = -2) then
     begin
       Result := TIME_ZONE_ID_INVALID;
@@ -1117,7 +1117,7 @@ begin
     afterDaylightDate := ret >= 0;
 
     Result := TIME_ZONE_ID_STANDARD;
-    if( pTZinfo.DaylightDate.wMonth < pTZinfo.StandardDate.wMonth ) then
+    if( pTZinfo^.DaylightDate.wMonth < pTZinfo^.StandardDate.wMonth ) then
     begin
       (* Northern hemisphere *)
       if( beforeStandardDate and afterDaylightDate) then
@@ -1136,7 +1136,7 @@ var
   bias: LongInt;
   tzid: LongWord;
 begin
-  bias := pTZinfo.Bias;
+  bias := pTZinfo^.Bias;
   tzid := CompTimeZoneID(pTZinfo, lpFileTime, islocal);
 
   if( tzid = TIME_ZONE_ID_INVALID) then
@@ -1145,9 +1145,9 @@ begin
     Exit;
   end;
   if (tzid = TIME_ZONE_ID_DAYLIGHT) then
-    inc(bias, pTZinfo.DaylightBias)
+    inc(bias, pTZinfo^.DaylightBias)
   else if (tzid = TIME_ZONE_ID_STANDARD) then
-    inc(bias, pTZinfo.StandardBias);
+    inc(bias, pTZinfo^.StandardBias);
   pBias^ := bias;
   Result := True;
 end;
