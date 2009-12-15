@@ -741,7 +741,17 @@ type
   TSerialFromJson = function(ctx: TSuperRttiContext; const obj: ISuperObject; var Value: TValue): Boolean;
   TSerialToJson = function(ctx: TSuperRttiContext; var value: TValue; const index: ISuperObject): ISuperObject;
 
+  TSuperAttribute = class(TCustomAttribute)
+  private
+    FName: string;
+  public
+    constructor Create(const AName: string);
+    property Name: string read FName;
+  end;
+
   TSuperRttiContext = class
+  private
+    class function GetFieldName(r: TRttiField): string;
   public
     Context: TRttiContext;
     SerialFromJson: TDictionary<PTypeInfo, TSerialFromJson>;
@@ -5747,6 +5757,13 @@ end;
 
 {$IFDEF VER210}
 
+{ TSuperAttribute }
+
+constructor TSuperAttribute.Create(const AName: string);
+begin
+  FName := AName;
+end;
+
 { TSuperRttiContext }
 
 constructor TSuperRttiContext.Create;
@@ -5766,6 +5783,16 @@ begin
   SerialFromJson.Free;
   SerialToJson.Free;
   Context.Free;
+end;
+
+class function TSuperRttiContext.GetFieldName(r: TRttiField): string;
+var
+  o: TCustomAttribute;
+begin
+  for o in r.GetAttributes do
+    if o is TSuperAttribute then
+      Exit(TSuperAttribute(o).Name);
+  Result := r.Name;
 end;
 
 function TSuperRttiContext.AsType<T>(const obj: ISuperObject): T;
@@ -5889,7 +5916,7 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
           for f in Context.GetType(Value.AsObject.ClassType).GetFields do
             if f.FieldType <> nil then
             begin
-              Result := FromJson(f.FieldType.Handle, obj.AsObject[f.Name], v);
+              Result := FromJson(f.FieldType.Handle, obj.AsObject[GetFieldName(f)], v);
               if Result then
                 f.SetValue(Value.AsObject, v) else
                 Exit;
@@ -5920,7 +5947,7 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
       if ObjectIsType(obj, stObject) and (f.FieldType <> nil) then
       begin
         p := IValueData(TValueData(Value).FHeapData).GetReferenceToRawData;
-        Result := FromJson(f.FieldType.Handle, obj.AsObject[f.Name], v);
+        Result := FromJson(f.FieldType.Handle, obj.AsObject[GetFieldName(f)], v);
         if Result then
           f.SetValue(p, v) else
           Exit;
@@ -6180,7 +6207,7 @@ function TSuperRttiContext.ToJson(var value: TValue; const index: ISuperObject):
           if f.FieldType <> nil then
           begin
             v := f.GetValue(Value.AsObject);
-            Result.AsObject[f.Name] := ToJson(v, index);
+            Result.AsObject[GetFieldName(f)] := ToJson(v, index);
           end
       end else
         Result := o;
@@ -6207,7 +6234,7 @@ function TSuperRttiContext.ToJson(var value: TValue; const index: ISuperObject):
     for f in Context.GetType(Value.TypeInfo).GetFields do
     begin
       v := f.GetValue(IValueData(TValueData(Value).FHeapData).GetReferenceToRawData);
-      Result.AsObject[f.Name] := ToJson(v, index);
+      Result.AsObject[GetFieldName(f)] := ToJson(v, index);
     end;
   end;
 
