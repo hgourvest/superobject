@@ -77,11 +77,9 @@
   {$MODE OBJFPC}{$H+}
 {$ENDIF}
 
-{$DEFINE SUPER_LARGE_INT}
 {$DEFINE SUPER_METHOD}
 {$DEFINE WINDOWSNT_COMPATIBILITY}
 {.$DEFINE DEBUG} // track memory leack
-{$DEFINE UNICODE} // not needed since delphi 2009
 
 unit superobject;
 
@@ -98,37 +96,19 @@ type
   PtrInt = longint;
   PtrUInt = Longword;
 {$ENDIF}
-{$IFDEF SUPER_LARGE_INT}
   SuperInt = Int64;
-{$ELSE}
-  SuperInt = Integer;
-{$ENDIF}
 
-{$IFDEF UNICODE}
-  {$if (sizeof(Char) = 1)}
-    SOChar = WideChar;
-    SOIChar = Word;
-    PSOChar = PWideChar;
-    SOString = WideString;
-  {$else}
-    SOChar = Char;
-    SOIChar = Word;
-    PSOChar = PChar;
-    SOString = string;
-  {$ifend}
-{$ELSE}
-  {$if (sizeof(Char) = 1)}
-    SOChar = Char;
-    SOIChar = Byte;
-    PSOChar = PChar;
-    SOString = string;
-  {$else}
-    SOChar = AnsiChar;
-    SOIChar = Byte;
-    PSOChar = PAnsiChar;
-    SOString = AnsiString;
-  {$ifend}
-{$ENDIF}
+{$if (sizeof(Char) = 1)}
+  SOChar = WideChar;
+  SOIChar = Word;
+  PSOChar = PWideChar;
+  SOString = WideString;
+{$else}
+  SOChar = Char;
+  SOIChar = Word;
+  PSOChar = PChar;
+  SOString = string;
+{$ifend}
 
 const
   SUPER_ARRAY_LIST_DEFAULT_SIZE = 32;
@@ -211,8 +191,10 @@ type
     function GetD(const k: SOString): Double;
     procedure PutB(const k: SOString; value: Boolean);
     function GetB(const k: SOString): Boolean;
+{$IFDEF SUPER_METHOD}
     procedure PutM(const k: SOString; value: TSuperMethod);
     function GetM(const k: SOString): TSuperMethod;
+{$ENDIF}
     procedure PutN(const k: SOString; const value: ISuperObject);
     function GetN(const k: SOString): ISuperObject;
     procedure PutC(const k: SOString; value: Currency);
@@ -223,7 +205,9 @@ type
     property I[const k: SOString]: SuperInt read GetI write PutI;
     property D[const k: SOString]: Double read GetD write PutD;
     property B[const k: SOString]: Boolean read GetB write PutB;
+{$IFDEF SUPER_METHOD}
     property M[const k: SOString]: TSuperMethod read GetM write PutM;
+{$ENDIF}
     property N[const k: SOString]: ISuperObject read GetN write PutN;
     property C[const k: SOString]: Currency read GetC write PutC;
 
@@ -864,7 +848,7 @@ const
   TOK_TRUE: PSOChar = 'true';
   TOK_FALSE: PSOChar = 'false';
 
-{$if defined(UNICODE) and (sizeof(Char) = 1)}
+{$if (sizeof(Char) = 1)}
 function StrLComp(const Str1, Str2: PSOChar; MaxLen: Cardinal): Integer;
 var
   P1, P2: PWideChar;
@@ -1678,14 +1662,12 @@ var
   pos, start_offset: Integer;
   c: SOChar;
   buf: array[0..5] of SOChar;
-{$IFDEF UNICODE}
 type
   TByteChar = record
   case integer of
     0: (a, b: Byte);
     1: (c: WideChar);
   end;
-{$ENDIF}
   begin
     if str = nil then
     begin
@@ -1715,7 +1697,6 @@ type
             start_offset := pos;
           end;
       else
-{$IFDEF UNICODE}
         if (SOIChar(c) > 255) then
         begin
           if(pos - start_offset > 0) then
@@ -1730,7 +1711,6 @@ type
           inc(pos);
           start_offset := pos;
         end else
-{$ENDIF}
         if (c < #32) or (c > #127) then
         begin
           if(pos - start_offset > 0) then
@@ -1757,14 +1737,12 @@ function DoMinimalEscape(str: PSOChar; len: Integer): Integer;
 var
   pos, start_offset: Integer;
   c: SOChar;
-{$IFDEF UNICODE}
 type
   TByteChar = record
   case integer of
     0: (a, b: Byte);
     1: (c: WideChar);
   end;
-{$ENDIF}
   begin
     if str = nil then
     begin
@@ -1905,11 +1883,7 @@ begin
           Result := Append(PSOChar(SOString(st)));
         end;
       stDouble:
-{$IFDEF UNICODE}
         Result := Append(PSOChar(SOString(gcvt(FO.c_double, 15, fbuffer))));
-{$ELSE}
-        Result := Append(gcvt(FO.c_double, 15, fbuffer));
-{$ENDIF}
       stCurrency:
         begin
           Result := Append(PSOChar(CurrToStr(FO.c_currency)));
@@ -2129,18 +2103,15 @@ const
 var
   tok: TSuperTokenizer;
   buffera: array[0..BUFFER_SIZE-1] of AnsiChar;
-{$IFDEF UNICODE}
   bufferw: array[0..BUFFER_SIZE-1] of SOChar;
   bom: array[0..1] of byte;
   unicode: boolean;
-{$ENDIF}
   j, size: Integer;
   st: string;
 begin
   st := '';
   tok := TSuperTokenizer.Create;
 
-{$IFDEF UNICODE}
   if (stream.Read(bom, sizeof(bom)) = 2) and (bom[0] = $FF) and (bom[1] = $FE) then
   begin
     unicode := true;
@@ -2151,31 +2122,20 @@ begin
       stream.Seek(0, soFromBeginning);
       size := stream.Read(buffera, BUFFER_SIZE);
     end;
-{$ELSE}
-  size := stream.Read(buffera, BUFFER_SIZE);
-{$ENDIF}
 
   while size > 0 do
   begin
-{$IFDEF UNICODE}
     if not unicode then
       for j := 0 to size - 1 do
         bufferw[j] := SOChar(buffera[j]);
     ParseEx(tok, bufferw, size, strict, this, options, put, dt);
-{$ELSE}
-    ParseEx(tok, buffera, size, this, options, put, dt);
-{$ENDIF}
 
     if tok.err = teContinue then
-    {$IFDEF UNICODE}
       begin
         if not unicode then
           size := stream.Read(buffera, BUFFER_SIZE) else
           size := stream.Read(bufferw, BUFFER_SIZE * SizeOf(SoChar)) div SizeOf(SoChar);
       end else
-    {$ELSE}
-      size := stream.Read(buffera, BUFFER_SIZE) else
-    {$ENDIF}
       Break;
   end;
   if(tok.err <> teSuccess) or (not partial and (st[tok.char_offset] <> #0)) then
@@ -2277,7 +2237,7 @@ redo_char:
     case TokRec^.state of
     tsEatws:
       begin
-        if {$IFDEF UNICODE}(SOIChar(v) < 256) and {$ENDIF} (AnsiChar(v) in spaces) then {nop} else
+        if (SOIChar(v) < 256) and (AnsiChar(v) in spaces) then {nop} else
         if (v = '/') then
         begin
           tok.pb.Reset;
@@ -2386,7 +2346,7 @@ redo_char:
         if (StrLComp(TOK_NULL, PSOChar(tok.pb.FBuf), min(tok.st_pos + 1, 4)) = 0) then
         begin
           if (tok.st_pos = 4) then
-          if (({$IFDEF UNICODE}(SOIChar(v) < 256) and {$ENDIF} (AnsiChar(v) in path)) or (SOIChar(v) >= 256)) then
+          if (((SOIChar(v) < 256) and (AnsiChar(v) in path)) or (SOIChar(v) >= 256)) then
             TokRec^.state := tsIdentifier else
           begin
             TokRec^.current := TSuperObject.Create(stNull);
@@ -2593,7 +2553,7 @@ redo_char:
       begin
         if (this = nil) then
         begin
-          if {$IFDEF UNICODE}(SOIChar(v) < 256) and {$ENDIF} IsEndDelimiter(AnsiChar(v)) then
+          if (SOIChar(v) < 256) and IsEndDelimiter(AnsiChar(v)) then
           begin
             if not strict then
             begin
@@ -2616,7 +2576,7 @@ redo_char:
             tok.pb.Append(@v, 1);
         end else
         begin
-         if {$IFDEF UNICODE}(SOIChar(v) < 256) and {$ENDIF} (AnsiChar(v) in reserved) then
+         if (SOIChar(v) < 256) and (AnsiChar(v) in reserved) then
          begin
            TokRec^.gparent := TokRec^.parent;
            if TokRec^.current = nil then
@@ -2846,7 +2806,7 @@ redo_char:
 
     tsEscapeUnicode:
       begin
-        if ({$IFDEF UNICODE}(SOIChar(v) < 256) and {$ENDIF} (AnsiChar(v) in super_hex_chars_set)) then
+        if ((SOIChar(v) < 256) and (AnsiChar(v) in super_hex_chars_set)) then
         begin
           inc(tok.ucs_char, (Word(hexdigit(v)) shl ((3-tok.st_pos)*4)));
           inc(tok.st_pos);
@@ -2863,7 +2823,7 @@ redo_char:
       end;
     tsEscapeHexadecimal:
       begin
-        if ({$IFDEF UNICODE}(SOIChar(v) < 256) and {$ENDIF} (AnsiChar(v) in super_hex_chars_set)) then
+        if ((SOIChar(v) < 256) and (AnsiChar(v) in super_hex_chars_set)) then
         begin
           inc(tok.ucs_char, (Word(hexdigit(v)) shl ((1-tok.st_pos)*4)));
           inc(tok.st_pos);
@@ -2884,7 +2844,7 @@ redo_char:
         if (StrLComp('true', PSOChar(tok.pb.FBuf), min(tok.st_pos + 1, 4)) = 0) then
         begin
           if (tok.st_pos = 4) then
-          if (({$IFDEF UNICODE}(SOIChar(v) < 256) and {$ENDIF} (AnsiChar(v) in path)) or (SOIChar(v) >= 256)) then
+          if (((SOIChar(v) < 256) and (AnsiChar(v) in path)) or (SOIChar(v) >= 256)) then
             TokRec^.state := tsIdentifier else
           begin
             TokRec^.current := TSuperObject.Create(true);
@@ -2896,7 +2856,7 @@ redo_char:
         if (StrLComp('false', PSOChar(tok.pb.FBuf), min(tok.st_pos + 1, 5)) = 0) then
         begin
           if (tok.st_pos = 5) then
-          if (({$IFDEF UNICODE}(SOIChar(v) < 256) and {$ENDIF} (AnsiChar(v) in path)) or (SOIChar(v) >= 256)) then
+          if (((SOIChar(v) < 256) and (AnsiChar(v) in path)) or (SOIChar(v) >= 256)) then
             TokRec^.state := tsIdentifier else
           begin
             TokRec^.current := TSuperObject.Create(false);
@@ -2916,10 +2876,10 @@ redo_char:
 
     tsNumber:
       begin
-        if {$IFDEF UNICODE}(SOIChar(v) < 256) and {$ENDIF} (AnsiChar(v) in super_number_chars_set) then
+        if (SOIChar(v) < 256) and (AnsiChar(v) in super_number_chars_set) then
         begin
           tok.pb.Append(@v, 1);
-          {$IFDEF UNICODE} if (SOIChar(v) < 256) then {$ENDIF}
+          if (SOIChar(v) < 256) then
           case v of
           '.': begin
                  tok.is_double := 1;
@@ -3050,7 +3010,7 @@ redo_char:
           TokRec^.saved_state := tsFinish;
           TokRec^.state := tsEatws;
         end else
-        if {$IFDEF UNICODE}(SOIChar(v) < 256) and {$ENDIF} (AnsiChar(v) in ['"', '''']) then
+        if (SOIChar(v) < 256) and (AnsiChar(v) in ['"', '''']) then
         begin
           tok.quote_char := v;
           tok.pb.Reset;
@@ -3088,7 +3048,7 @@ redo_char:
 
     tsObjectUnquotedField:
       begin
-        if {$IFDEF UNICODE}(SOIChar(v) < 256) and {$ENDIF} (AnsiChar(v) in [':', #0]) then
+        if (SOIChar(v) < 256) and (AnsiChar(v) in [':', #0]) then
         begin
           TokRec^.field_name := tok.pb.FBuf;
           TokRec^.saved_state := tsObjectFieldEnd;
@@ -4573,14 +4533,8 @@ begin
     // fast move
     case size of
     1: FBuf[FBPos] := buf^;
-{$IFDEF UNICODE}
     2: PInteger(@FBuf[FBPos])^ := PInteger(buf)^;
     4: PInt64(@FBuf[FBPos])^ := PInt64(buf)^;
-{$ELSE}
-    2: PWord(@FBuf[FBPos])^ := PWord(buf)^;
-    4: PInteger(@FBuf[FBPos])^ := PInteger(buf)^;
-    8: PInt64(@FBuf[FBPos])^ := PInt64(buf)^;
-{$ENDIF}
     else
       move(buf^, FBuf[FBPos], size * SizeOf(SOChar));
     end;
@@ -4622,7 +4576,7 @@ end;
 
 procedure TSuperWriterString.TrimRight;
 begin
-  while (FBPos > 0) and {$IFDEF UNICODE}(FBuf[FBPos-1] < #256) and{$ENDIF} (AnsiChar(FBuf[FBPos-1]) in [#32, #13, #10]) do
+  while (FBPos > 0) and (FBuf[FBPos-1] < #256) and (AnsiChar(FBuf[FBPos-1]) in [#32, #13, #10]) do
   begin
     dec(FBPos);
     FBuf[FBPos] := #0;
@@ -4632,41 +4586,31 @@ end;
 { TSuperWriterStream }
 
 function TSuperWriterStream.Append(buf: PSOChar; Size: Integer): Integer;
-{$IFDEF UNICODE}
 var
   Buffer: array[0..1023] of AnsiChar;
   pBuffer: PAnsiChar;
   i: Integer;
-{$ENDIF}
 begin
-{$IFDEF UNICODE}
-   if Size = 1 then
-     Result := FStream.Write(buf^, Size) else
-   begin
-     if Size > SizeOf(Buffer) then
-       GetMem(pBuffer, Size) else
-       pBuffer := @Buffer;
-     try
-       for i :=  0 to Size - 1 do
-         pBuffer[i] := AnsiChar(buf[i]);
-       Result := FStream.Write(pBuffer^, Size);
-     finally
-       if pBuffer <> @Buffer then
-         FreeMem(pBuffer);
-     end;
-   end;
-{$ELSE}
-  Result := FStream.Write(buf^, Size * SizeOf(SOChar));
-{$ENDIF}
+  if Size = 1 then
+    Result := FStream.Write(buf^, Size) else
+  begin
+    if Size > SizeOf(Buffer) then
+      GetMem(pBuffer, Size) else
+      pBuffer := @Buffer;
+    try
+      for i :=  0 to Size - 1 do
+        pBuffer[i] := AnsiChar(buf[i]);
+      Result := FStream.Write(pBuffer^, Size);
+    finally
+      if pBuffer <> @Buffer then
+        FreeMem(pBuffer);
+    end;
+  end;
 end;
 
 function TSuperWriterStream.Append(buf: PSOChar): Integer;
 begin
-{$IFDEF UNICODE}
   Result := Append(buf, StrLen(buf));
-{$ELSE}
-  Result := FStream.Write(buf^, StrLen(buf) * SizeOf(SOChar));
-{$ENDIF}
 end;
 
 constructor TSuperWriterStream.Create(AStream: TStream);
@@ -4708,51 +4652,40 @@ end;
 { TSuperWriterSock }
 
 function TSuperWriterSock.Append(buf: PSOChar; Size: Integer): Integer;
-{$IFDEF UNICODE}
 var
   Buffer: array[0..1023] of AnsiChar;
   pBuffer: PAnsiChar;
   i: Integer;
-{$ENDIF}
 begin
-{$IFDEF UNICODE}
-   if Size = 1 then
-     Result := send(FSocket, buf^, size, 0) else
-   begin
-     if Size > SizeOf(Buffer) then
-       GetMem(pBuffer, Size) else
-       pBuffer := @Buffer;
-     try
-       for i :=  0 to Size - 1 do
-         pBuffer[i] := AnsiChar(buf[i]);
-       Result := send(FSocket, pBuffer^, size, 0);
-     finally
-       if pBuffer <> @Buffer then
-         FreeMem(pBuffer);
-     end;
-   end;
+  if Size = 1 then
+{$IFDEF FPC}
+    Result := fpsend(FSocket, buf, size, 0) else
 {$ELSE}
-  {$IFDEF FPC}
-    Result := fpsend(FSocket, buf, size * SizeOf(SOChar), 0);
-  {$ELSE}
-    Result := send(FSocket, buf^, size * SizeOf(SOChar), 0);
-  {$ENDIF}
+    Result := send(FSocket, buf^, size, 0) else
 {$ENDIF}
+  begin
+    if Size > SizeOf(Buffer) then
+      GetMem(pBuffer, Size) else
+      pBuffer := @Buffer;
+    try
+      for i :=  0 to Size - 1 do
+        pBuffer[i] := AnsiChar(buf[i]);
+{$IFDEF FPC}
+      Result := fpsend(FSocket, pBuffer, size, 0);
+{$ELSE}
+      Result := send(FSocket, pBuffer^, size, 0);
+{$ENDIF}
+    finally
+      if pBuffer <> @Buffer then
+        FreeMem(pBuffer);
+    end;
+  end;
   inc(FSize, Result);
 end;
 
 function TSuperWriterSock.Append(buf: PSOChar): Integer;
 begin
-{$IFDEF UNICODE}
   Result := Append(buf, StrLen(buf));
-{$ELSE}
-  {$IFDEF FPC}
-    Result := fpsend(FSocket, buf, strlen(buf) * SizeOf(SOChar), 0);
-  {$ELSE}
-    Result := send(FSocket, buf^, strlen(buf) * SizeOf(SOChar), 0);
-  {$ENDIF}
-  inc(FSize, Result);
-{$ENDIF}
 end;
 
 constructor TSuperWriterSock.Create(ASocket: Integer);
@@ -5722,11 +5655,14 @@ begin
    Result := False;
 end;
 
+{$IFDEF SUPER_METHOD}
 procedure TSuperTableString.PutM(const k: SOString; value: TSuperMethod);
 begin
   PutO(k, TSuperObject.Create(Value));
 end;
+{$ENDIF}
 
+{$IFDEF SUPER_METHOD}
 function TSuperTableString.GetM(const k: SOString): TSuperMethod;
 var
   obj: ISuperObject;
@@ -5736,6 +5672,7 @@ begin
    Result := obj.AsMethod else
    Result := nil;
 end;
+{$ENDIF}
 
 procedure TSuperTableString.PutN(const k: SOString; const value: ISuperObject);
 begin
