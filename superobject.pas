@@ -1414,23 +1414,54 @@ begin
 end;
 
 function serialfromboolean(ctx: TSuperRttiContext; const obj: ISuperObject; var Value: TValue): Boolean;
+var
+  o: ISuperObject;
 begin
-  if ObjectIsType(obj, stBoolean) then
-  begin
-    TValueData(Value).FAsSLong := obj.AsInteger;
-    Result := True;
-  end else
+  case ObjectGetType(obj) of
+  stBoolean:
+    begin
+      TValueData(Value).FAsSLong := obj.AsInteger;
+      Result := True;
+    end;
+  stInt:
+    begin
+      TValueData(Value).FAsSLong := ord(obj.AsInteger <> 0);
+      Result := True;
+    end;
+  stString:
+    begin
+      o := SO(obj.AsString);
+      if not ObjectIsType(o, stString) then
+        Result := serialfromboolean(ctx, SO(obj.AsString), Value) else
+        Result := False;
+    end;
+  else
     Result := False;
+  end;
 end;
 
 function serialfromdatetime(ctx: TSuperRttiContext; const obj: ISuperObject; var Value: TValue): Boolean;
+var
+  dt: TDateTime;
 begin
-  if ObjectIsType(obj, stInt) then
-  begin
-    TValueData(Value).FAsDouble := JavaToDelphiDateTime(obj.AsInteger);
-    Result := True;
-  end else
+  case ObjectGetType(obj) of
+  stInt:
+    begin
+      TValueData(Value).FAsDouble := JavaToDelphiDateTime(obj.AsInteger);
+      Result := True;
+    end;
+  stString:
+    begin
+      if TryStrToDateTime(obj.AsString, dt) then
+      begin
+        TValueData(Value).FAsDouble := dt;
+        Result := True;
+      end else
+        Result := False;
+    end;
+  else
     Result := False;
+  end;
 end;
 
 function SOInvoke(const obj: TValue; const method: string; const params: ISuperObject; ctx: TSuperRttiContext): ISuperObject; overload;
@@ -5775,30 +5806,56 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
   end;
 
   procedure FromInt64;
+  var
+    i: Int64;
   begin
-    if ObjectIsType(obj, stInt) then
-    begin
-      TValue.Make(nil, TypeInfo, Value);
-      TValueData(Value).FAsSInt64 := obj.AsInteger;
-      Result := True;
-    end else
+    case ObjectGetType(obj) of
+    stInt:
+      begin
+        TValue.Make(nil, TypeInfo, Value);
+        TValueData(Value).FAsSInt64 := obj.AsInteger;
+        Result := True;
+      end;
+    stString:
+      begin
+        if TryStrToInt64(obj.AsString, i) then
+        begin
+          TValue.Make(nil, TypeInfo, Value);
+          TValueData(Value).FAsSInt64 := i;
+          Result := True;
+        end else
+          Result := False;
+      end;
+    else
       Result := False;
+    end;
   end;
 
-  procedure FromInt;
+  procedure FromInt(const obj: ISuperObject);
   var
     TypeData: PTypeData;
     i: Integer;
+    o: ISuperObject;
   begin
-    if ObjectGetType(obj) in [stInt, stBoolean] then
-    begin
-      i := obj.AsInteger;
-      TypeData := GetTypeData(TypeInfo);
-      Result := (i >= TypeData.MinValue) and (i <= TypeData.MaxValue);
-      if Result then
-        TValue.Make(@i, TypeInfo, Value);
-    end else
+    case ObjectGetType(obj) of
+    stInt, stBoolean:
+      begin
+        i := obj.AsInteger;
+        TypeData := GetTypeData(TypeInfo);
+        Result := (i >= TypeData.MinValue) and (i <= TypeData.MaxValue);
+        if Result then
+          TValue.Make(@i, TypeInfo, Value);
+      end;
+    stString:
+      begin
+        o := SO(obj.AsString);
+        if not ObjectIsType(o, stString) then
+          FromInt(o) else
+          Result := False;
+      end;
+    else
       Result := False;
+    end;
   end;
 
   procedure fromSet;
@@ -5812,31 +5869,49 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
       Result := False;
   end;
 
-  procedure FromFloat;
+  procedure FromFloat(const obj: ISuperObject);
+  var
+    o: ISuperObject;
   begin
-    if ObjectGetType(obj) in [stInt, stDouble, stCurrency] then
-    begin
-      TValue.Make(nil, TypeInfo, Value);
-      case GetTypeData(TypeInfo).FloatType of
-        ftSingle: TValueData(Value).FAsSingle := obj.AsDouble;
-        ftDouble: TValueData(Value).FAsDouble := obj.AsDouble;
-        ftExtended: TValueData(Value).FAsExtended := obj.AsDouble;
-        ftComp: TValueData(Value).FAsSInt64 := obj.AsInteger;
-        ftCurr: TValueData(Value).FAsCurr := obj.AsCurrency;
+    case ObjectGetType(obj) of
+    stInt, stDouble, stCurrency:
+      begin
+        TValue.Make(nil, TypeInfo, Value);
+        case GetTypeData(TypeInfo).FloatType of
+          ftSingle: TValueData(Value).FAsSingle := obj.AsDouble;
+          ftDouble: TValueData(Value).FAsDouble := obj.AsDouble;
+          ftExtended: TValueData(Value).FAsExtended := obj.AsDouble;
+          ftComp: TValueData(Value).FAsSInt64 := obj.AsInteger;
+          ftCurr: TValueData(Value).FAsCurr := obj.AsCurrency;
+        end;
+        Result := True;
       end;
-      Result := True;
-    end else
-      Result := False;
+    stString:
+      begin
+        o := SO(obj.AsString);
+        if not ObjectIsType(o, stString) then
+          FromFloat(o) else
+          Result := False;
+      end
+    else
+       Result := False;
+    end;
   end;
 
   procedure FromString;
   begin
-    if ObjectIsType(obj, stString) then
-    begin
+    case ObjectGetType(obj) of
+    stObject, stArray:
+      Result := False;
+    stnull:
+      begin
+        Value := '';
+        Result := True;
+      end;
+    else
       Value := obj.AsString;
       Result := True;
-    end else
-      Result := False;
+    end;
   end;
 
   procedure FromClass;
@@ -6071,9 +6146,9 @@ begin
       case TypeInfo.Kind of
         tkChar: FromChar;
         tkInt64: FromInt64;
-        tkEnumeration, tkInteger: FromInt;
+        tkEnumeration, tkInteger: FromInt(obj);
         tkSet: fromSet;
-        tkFloat: FromFloat;
+        tkFloat: FromFloat(obj);
         tkString, tkLString, tkUString, tkWString: FromString;
         tkClass: FromClass;
         tkMethod: ;
