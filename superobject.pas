@@ -918,39 +918,44 @@ var
   p: PSOChar;
   i, len: Integer;
 begin
-  Result := IntToStr(PInt64(@c)^);
+  Result := IntToStr(Abs(PInt64(@c)^));
   len := Length(Result);
-  while len <= 4 do
-  begin
-    Result := '0' + Result;
-    inc(len);
-  end;
-
-  p := PSOChar(Result);
-  inc(p, len-1);
-  i := 0;
   if c <> 0 then
-  repeat
-    if p^ <> '0' then
+  begin
+    while len <= 4 do
     begin
-      len := len - i + 1;
-      repeat
-        p[1] := p^;
-        dec(p);
-        inc(i);
-      until i > 3;
-      Break;
+      Result := '0' + Result;
+      inc(len);
     end;
-    dec(p);
-    inc(i);
-    if i > 3 then
-    begin
-      len := len - i + 1;
-      Break;
-    end;
-  until false;
-  p[1] := '.';
-  SetLength(Result, len);
+
+    p := PSOChar(Result);
+    inc(p, len-1);
+    i := 0;
+    //if c <> 0 then
+    repeat
+      if p^ <> '0' then
+      begin
+        len := len - i + 1;
+        repeat
+          p[1] := p^;
+          dec(p);
+          inc(i);
+        until i > 3;
+        Break;
+      end;
+      dec(p);
+      inc(i);
+      if i > 3 then
+      begin
+        len := len - i + 1;
+        Break;
+      end;
+    until false;
+    p[1] := '.';
+    SetLength(Result, len);
+    if c < 0 then
+      Result := '-' + Result;
+  end;
 end;
 
 {$IFDEF UNIX}
