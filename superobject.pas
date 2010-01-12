@@ -920,6 +920,12 @@ var
 begin
   Result := IntToStr(PInt64(@c)^);
   len := Length(Result);
+  while len <= 4 do
+  begin
+    Result := '0' + Result;
+    inc(len);
+  end;
+
   p := PSOChar(Result);
   inc(p, len-1);
   i := 0;
@@ -5980,28 +5986,55 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
     typ: PTypeData;
     el: PTypeInfo;
   begin
-    i := obj.AsArray.Length;
-    p := nil;
-    DynArraySetLength(p, TypeInfo, 1, @i);
-    pb := p;
-    typ := GetTypeData(TypeInfo);
-    if typ.elType <> nil then
-      el := typ.elType^ else
-      el := typ.elType2^;
+    case ObjectGetType(obj) of
+    stArray:
+      begin
+        i := obj.AsArray.Length;
+        p := nil;
+        DynArraySetLength(p, TypeInfo, 1, @i);
+        pb := p;
+        typ := GetTypeData(TypeInfo);
+        if typ.elType <> nil then
+          el := typ.elType^ else
+          el := typ.elType2^;
 
-    Result := True;
-    for i := 0 to i - 1 do
-    begin
-      Result := FromJson(el, obj.AsArray[i], val);
-      if not Result then
-        Break;
+        Result := True;
+        for i := 0 to i - 1 do
+        begin
+          Result := FromJson(el, obj.AsArray[i], val);
+          if not Result then
+            Break;
+          val.ExtractRawData(pb);
+          val := TValue.Empty;
+          Inc(pb, typ.elSize);
+        end;
+        if Result then
+          TValue.MakeWithoutCopy(@p, TypeInfo, Value) else
+          DynArrayClear(p, TypeInfo);
+      end;
+    stNull:
+      begin
+        TValue.MakeWithoutCopy(nil, TypeInfo, Value);
+        Result := True;
+      end;
+    else
+      i := 1;
+      p := nil;
+      DynArraySetLength(p, TypeInfo, 1, @i);
+      pb := p;
+      typ := GetTypeData(TypeInfo);
+      if typ.elType <> nil then
+        el := typ.elType^ else
+        el := typ.elType2^;
+
+      Result := FromJson(el, obj, val);
       val.ExtractRawData(pb);
       val := TValue.Empty;
-      Inc(pb, typ.elSize);
+
+      if Result then
+        TValue.MakeWithoutCopy(@p, TypeInfo, Value) else
+        DynArrayClear(p, TypeInfo);
     end;
-    if Result then
-      TValue.MakeWithoutCopy(@p, TypeInfo, Value) else
-      DynArrayClear(p, TypeInfo);
   end;
 
   procedure FromArray;
