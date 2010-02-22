@@ -1424,6 +1424,20 @@ begin
   Result := TSuperObject.Create(DelphiToJavaDateTime(TValueData(value).FAsDouble));
 end;
 
+function serialtoguid(ctx: TSuperRttiContext; var value: TValue; const index: ISuperObject): ISuperObject;
+var
+  g: TGUID;
+begin
+  value.ExtractRawData(@g);
+  Result := TSuperObject.Create(
+    format('%.8x-%.4x-%.4x-%.2x%.2x-%.2x%.2x%.2x%.2x%.2x%.2x',
+              [g.D1, g.D2, g.D3,
+               g.D4[0], g.D4[1], g.D4[2],
+               g.D4[3], g.D4[4], g.D4[5],
+               g.D4[6], g.D4[7]])
+  );
+end;
+
 function serialfromboolean(ctx: TSuperRttiContext; const obj: ISuperObject; var Value: TValue): Boolean;
 var
   o: ISuperObject;
@@ -1470,6 +1484,61 @@ begin
       end else
         Result := False;
     end;
+  else
+    Result := False;
+  end;
+end;
+
+function UuidFromString(const s: PSOChar; Uuid: PGUID): Boolean;
+const
+  hex2bin: array[#0..#102] of short = (
+    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,        (* 0x00 *)
+    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,        (* 0x10 *)
+    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,        (* 0x20 *)
+     0, 1, 2, 3, 4, 5, 6, 7, 8, 9,-1,-1,-1,-1,-1,-1,        (* 0x30 *)
+    -1,10,11,12,13,14,15,-1,-1,-1,-1,-1,-1,-1,-1,-1,        (* 0x40 *)
+    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,        (* 0x50 *)
+    -1,10,11,12,13,14,15);                                  (* 0x60 *)
+var
+  i: Integer;
+begin
+  if (strlen(s) <> 36) then Exit(False);
+
+  if ((s[8] <> '-') or (s[13] <> '-') or (s[18] <> '-') or (s[23] <> '-')) then
+     Exit(False);
+
+  for i := 0 to 35 do
+  begin
+    if not i in [8,13,18,23] then
+      if ((s[i] > 'f') or ((hex2bin[s[i]] = -1) and (s[i] <> ''))) then
+        Exit(False);
+  end;
+
+  uuid.D1 := ((hex2bin[s[0]] shl 28) or (hex2bin[s[1]] shl 24) or (hex2bin[s[2]] shl 20) or (hex2bin[s[3]] shl 16) or
+                (hex2bin[s[4]] shl 12) or (hex2bin[s[5]] shl 8) or (hex2bin[s[6]]  shl 4) or hex2bin[s[7]]);
+  uuid.D2 := (hex2bin[s[9]] shl 12) or (hex2bin[s[10]] shl 8) or (hex2bin[s[11]] shl 4) or hex2bin[s[12]];
+  uuid.D3 := (hex2bin[s[14]] shl 12) or (hex2bin[s[15]] shl 8) or (hex2bin[s[16]] shl 4) or hex2bin[s[17]];
+
+  uuid.D4[0] := (hex2bin[s[19]] shl 4) or hex2bin[s[20]];
+  uuid.D4[1] := (hex2bin[s[21]] shl 4) or hex2bin[s[22]];
+  uuid.D4[2] := (hex2bin[s[24]] shl 4) or hex2bin[s[25]];
+  uuid.D4[3] := (hex2bin[s[26]] shl 4) or hex2bin[s[27]];
+  uuid.D4[4] := (hex2bin[s[28]] shl 4) or hex2bin[s[29]];
+  uuid.D4[5] := (hex2bin[s[30]] shl 4) or hex2bin[s[31]];
+  uuid.D4[6] := (hex2bin[s[32]] shl 4) or hex2bin[s[33]];
+  uuid.D4[7] := (hex2bin[s[34]] shl 4) or hex2bin[s[35]];
+  Result := True;
+end;
+
+function serialfromguid(ctx: TSuperRttiContext; const obj: ISuperObject; var Value: TValue): Boolean;
+begin
+  case ObjectGetType(obj) of
+    stNull:
+      begin
+        FillChar(Value.GetReferenceToRawData^, SizeOf(TGUID), 0);
+        Result := True;
+      end;
+    stString: Result := UuidFromString(PSOChar(obj.AsString), Value.GetReferenceToRawData);
   else
     Result := False;
   end;
@@ -5753,8 +5822,10 @@ begin
 
   SerialFromJson.Add(TypeInfo(Boolean), serialfromboolean);
   SerialFromJson.Add(TypeInfo(TDateTime), serialfromdatetime);
+  SerialFromJson.Add(TypeInfo(TGUID), serialfromguid);
   SerialToJson.Add(TypeInfo(Boolean), serialtoboolean);
   SerialToJson.Add(TypeInfo(TDateTime), serialtodatetime);
+  SerialToJson.Add(TypeInfo(TGUID), serialtoguid);
 end;
 
 destructor TSuperRttiContext.Destroy;
