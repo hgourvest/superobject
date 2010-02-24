@@ -315,10 +315,19 @@ type
   private
     FStream: TStream;
   public
-    function Append(buf: PSOChar; Size: Integer): Integer; override;
     function Append(buf: PSOChar): Integer; override;
     procedure Reset; override;
     constructor Create(AStream: TStream); reintroduce; virtual;
+  end;
+
+  TSuperAnsiWriterStream = class(TSuperWriterStream)
+  public
+    function Append(buf: PSOChar; Size: Integer): Integer; override;
+  end;
+
+  TSuperUnicodeWriterStream = class(TSuperWriterStream)
+  public
+    function Append(buf: PSOChar; Size: Integer): Integer; override;
   end;
 
   TSuperWriterFake = class(TSuperWriter)
@@ -925,6 +934,7 @@ var
 begin
   Result := IntToStr(Abs(PInt64(@c)^));
   len := Length(Result);
+  SetLength(Result, len+1);
   if c <> 0 then
   begin
     while len <= 4 do
@@ -936,7 +946,6 @@ begin
     p := PSOChar(Result);
     inc(p, len-1);
     i := 0;
-    //if c <> 0 then
     repeat
       if p^ <> '0' then
       begin
@@ -3298,7 +3307,10 @@ function TSuperObject.SaveTo(stream: TStream; indent, escape: boolean): integer;
 var
   pb: TSuperWriterStream;
 begin
-  pb := TSuperWriterStream.Create(stream);
+  if escape then
+    pb := TSuperAnsiWriterStream.Create(stream) else
+    pb := TSuperUnicodeWriterStream.Create(stream);
+
   if(Write(pb, indent, escape, 0) < 0) then
   begin
     pb.Reset;
@@ -4701,7 +4713,25 @@ end;
 
 { TSuperWriterStream }
 
-function TSuperWriterStream.Append(buf: PSOChar; Size: Integer): Integer;
+function TSuperWriterStream.Append(buf: PSOChar): Integer;
+begin
+  Result := Append(buf, StrLen(buf));
+end;
+
+constructor TSuperWriterStream.Create(AStream: TStream);
+begin
+  inherited Create;
+  FStream := AStream;
+end;
+
+procedure TSuperWriterStream.Reset;
+begin
+  FStream.Size := 0;
+end;
+
+{ TSuperWriterStream }
+
+function TSuperAnsiWriterStream.Append(buf: PSOChar; Size: Integer): Integer;
 var
   Buffer: array[0..1023] of AnsiChar;
   pBuffer: PAnsiChar;
@@ -4724,20 +4754,11 @@ begin
   end;
 end;
 
-function TSuperWriterStream.Append(buf: PSOChar): Integer;
-begin
-  Result := Append(buf, StrLen(buf));
-end;
+{ TSuperUnicodeWriterStream }
 
-constructor TSuperWriterStream.Create(AStream: TStream);
+function TSuperUnicodeWriterStream.Append(buf: PSOChar; Size: Integer): Integer;
 begin
-  inherited Create;
-  FStream := AStream;
-end;
-
-procedure TSuperWriterStream.Reset;
-begin
-  FStream.Size := 0;
+  Result := FStream.Write(buf^, Size * 2);
 end;
 
 { TSuperWriterFake }
