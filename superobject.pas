@@ -733,9 +733,14 @@ type
     property Name: string read FName;
   end;
 
+  SOName = class(TSuperAttribute);
+  SODefault = class(TSuperAttribute);
+
+
   TSuperRttiContext = class
   private
     class function GetFieldName(r: TRttiField): string;
+    class function GetFieldDefault(r: TRttiField; const obj: ISuperObject): ISuperObject;
   public
     Context: TRttiContext;
     SerialFromJson: TDictionary<PTypeInfo, TSerialFromJson>;
@@ -5840,9 +5845,20 @@ var
   o: TCustomAttribute;
 begin
   for o in r.GetAttributes do
-    if o is TSuperAttribute then
-      Exit(TSuperAttribute(o).Name);
+    if o is SOName then
+      Exit(SOName(o).Name);
   Result := r.Name;
+end;
+
+class function TSuperRttiContext.GetFieldDefault(r: TRttiField; const obj: ISuperObject): ISuperObject;
+var
+  o: TCustomAttribute;
+begin
+  if not ObjectIsType(obj, stNull) then Exit(obj);
+  for o in r.GetAttributes do
+    if o is SODefault then
+      Exit(SO(SODefault(o).Name));
+  Result := obj;
 end;
 
 function TSuperRttiContext.AsType<T>(const obj: ISuperObject): T;
@@ -6010,7 +6026,7 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
           for f in Context.GetType(Value.AsObject.ClassType).GetFields do
             if f.FieldType <> nil then
             begin
-              Result := FromJson(f.FieldType.Handle, obj.AsObject[GetFieldName(f)], v);
+              Result := FromJson(f.FieldType.Handle, GetFieldDefault(f, obj.AsObject[GetFieldName(f)]), v);
               if Result then
                 f.SetValue(Value.AsObject, v) else
                 Exit;
@@ -6041,7 +6057,7 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
       if ObjectIsType(obj, stObject) and (f.FieldType <> nil) then
       begin
         p := IValueData(TValueData(Value).FHeapData).GetReferenceToRawData;
-        Result := FromJson(f.FieldType.Handle, obj.AsObject[GetFieldName(f)], v);
+        Result := FromJson(f.FieldType.Handle, GetFieldDefault(f, obj.AsObject[GetFieldName(f)]), v);
         if Result then
           f.SetValue(p, v) else
           Exit;
