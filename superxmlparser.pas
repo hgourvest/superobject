@@ -19,6 +19,7 @@ const
   xmlname       = '#name';
   xmlattributes = '#attributes';
   xmlchildren   = '#children';
+  xmltext       = '#text';
 
   dtdname = '#name';
   dtdPubidLiteral = '#pubidliteral';
@@ -206,7 +207,7 @@ const
         if FStack^.prev <> nil then
           AddProperty(FStack^.prev^.obj, anobject.AsArray[0], FStack^.obj.AsObject.S[xmlname]) else
           begin
-            AddProperty(FStack^.obj, anobject.AsArray[0], '#text');
+            AddProperty(FStack^.obj, anobject.AsArray[0], xmltext);
             FStack^.obj.AsObject.Delete(xmlchildren);
           end;
       end
@@ -231,12 +232,16 @@ const
             AddProperty(FStack^.obj, anobject2, anobject2.AsObject.S[xmlname]);
             anobject2.AsObject.Delete(xmlname);
           end else
-            AddProperty(FStack^.obj, anobject2, '#text');
+            AddProperty(FStack^.obj, anobject2, xmltext);
         end;
         FStack^.obj.Delete(xmlchildren);
       end;
-      if FStack^.prev <> nil then
-        AddProperty(FStack^.prev^.obj, FStack^.obj, FStack^.obj.AsObject.S[xmlname]);
+      if (FStack^.prev <> nil) and (FStack^.obj.AsObject.count > 1) then
+      begin
+        if (FStack^.obj.AsObject.count = 2) and (FStack^.obj.AsObject[xmltext] <> nil) then
+          AddProperty(FStack^.prev^.obj, FStack^.obj.AsObject[xmltext], FStack^.obj.AsObject.S[xmlname]) else
+          AddProperty(FStack^.prev^.obj, FStack^.obj, FStack^.obj.AsObject.S[xmlname]);
+      end;
       FStack^.obj.Delete(xmlname);
     end;
   end;
