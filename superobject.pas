@@ -282,7 +282,6 @@ type
 {$IFDEF SUPER_METHOD}
     property M[const index: integer]: TSuperMethod read GetM write PutM;
 {$ENDIF}
-//    property A[const index: integer]: TSuperArray read GetA;
   end;
 
   TSuperWriter = class
@@ -927,56 +926,41 @@ begin
 end;
 {$ifend}
 
-function CurrToStr(c: Currency): SOString;
+function FloatToJson(const value: Double): SOString;
 var
   p: PSOChar;
-  i, len: Integer;
 begin
-  Result := IntToStr(Abs(PInt64(@c)^));
-  len := Length(Result);
-  SetLength(Result, len+1);
-  if c <> 0 then
+  Result := FloatToStr(value);
+  if DecimalSeparator <> '.' then
   begin
-    while len <= 4 do
-    begin
-      Result := '0' + Result;
-      inc(len);
-    end;
-
     p := PSOChar(Result);
-    inc(p, len-1);
-    i := 0;
-    repeat
-      if p^ <> '0' then
+    while p^ <> #0 do
+      if p^ <> DecimalSeparator then
+      inc(p) else
       begin
-        len := len - i + 1;
-        repeat
-          p[1] := p^;
-          dec(p);
-          inc(i);
-        until i > 3;
-        Break;
+        p^ := '.';
+        Exit;
       end;
-      dec(p);
-      inc(i);
-      if i > 3 then
-      begin
-        len := len - i + 1;
-        Break;
-      end;
-    until false;
-    p[1] := '.';
-    SetLength(Result, len);
-    if c < 0 then
-      Result := '-' + Result;
   end;
 end;
 
-{$IFDEF UNIX}
-  {$linklib c}
-{$ENDIF}
-function gcvt(value: Double; ndigit: longint; buf: PAnsiChar): PAnsiChar; cdecl;
-  external {$IFDEF MSWINDOWS} 'msvcrt.dll' name '_gcvt'{$ENDIF};
+function CurrToJson(const value: Currency): SOString;
+var
+  p: PSOChar;
+begin
+  Result := CurrToStr(value);
+  if DecimalSeparator <> '.' then
+  begin
+    p := PSOChar(Result);
+    while p^ <> #0 do
+      if p^ <> DecimalSeparator then
+      inc(p) else
+      begin
+        p^ := '.';
+        Exit;
+      end;
+  end;
+end;
 
 {$IFDEF UNIX}
 type
@@ -1942,7 +1926,6 @@ var
   iter: TSuperObjectIter;
   st: AnsiString;
   val: ISuperObject;
-  fbuffer: array[0..31] of AnsiChar;
 const
   ENDSTR_A: PSOChar = '": ';
   ENDSTR_B: PSOChar = '":';
@@ -2008,10 +1991,10 @@ begin
           Result := Append(PSOChar(SOString(st)));
         end;
       stDouble:
-        Result := Append(PSOChar(SOString(gcvt(FO.c_double, 15, fbuffer))));
+        Result := Append(PSOChar(FloatToJson(FO.c_double)));
       stCurrency:
         begin
-          Result := Append(PSOChar(CurrToStr(FO.c_currency)));
+          Result := Append(PSOChar(CurrToJson(FO.c_currency)));
         end;
       stString:
         begin
