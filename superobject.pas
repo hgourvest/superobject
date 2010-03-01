@@ -935,7 +935,7 @@ begin
   begin
     p := PSOChar(Result);
     while p^ <> #0 do
-      if p^ <> DecimalSeparator then
+      if p^ <> SOChar(DecimalSeparator) then
       inc(p) else
       begin
         p^ := '.';
@@ -953,7 +953,7 @@ begin
   begin
     p := PSOChar(Result);
     while p^ <> #0 do
-      if p^ <> DecimalSeparator then
+      if p^ <> SOChar(DecimalSeparator) then
       inc(p) else
       begin
         p^ := '.';
