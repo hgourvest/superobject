@@ -1487,44 +1487,199 @@ begin
   end;
 end;
 
-function UuidFromString(const s: PSOChar; Uuid: PGUID): Boolean;
+function UuidFromString(p: PSOChar; Uuid: PGUID): Boolean;
 const
-  hex2bin: array[#0..#102] of short = (
-    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,        (* 0x00 *)
-    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,        (* 0x10 *)
-    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,        (* 0x20 *)
-     0, 1, 2, 3, 4, 5, 6, 7, 8, 9,-1,-1,-1,-1,-1,-1,        (* 0x30 *)
-    -1,10,11,12,13,14,15,-1,-1,-1,-1,-1,-1,-1,-1,-1,        (* 0x40 *)
-    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,        (* 0x50 *)
-    -1,10,11,12,13,14,15);                                  (* 0x60 *)
-var
-  i: Integer;
-begin
-  if (strlen(s) <> 36) then Exit(False);
-
-  if ((s[8] <> '-') or (s[13] <> '-') or (s[18] <> '-') or (s[23] <> '-')) then
-     Exit(False);
-
-  for i := 0 to 35 do
-  begin
-    if not i in [8,13,18,23] then
-      if ((s[i] > 'f') or ((hex2bin[s[i]] = -1) and (s[i] <> ''))) then
-        Exit(False);
+  hex2bin: array[#48..#102] of Byte = (
+     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 0, 0, 0, 0,
+     0,10,11,12,13,14,15, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+     0,10,11,12,13,14,15);
+type
+  TState = (stEatSpaces, stStart, stHEX, stBracket, stEnd);
+  TUUID = record
+    case byte of
+      0: (guid: TGUID);
+      1: (bytes: array[0..15] of Byte);
+      2: (words: array[0..7] of Word);
+      3: (ints: array[0..3] of Cardinal);
+      4: (i64s: array[0..1] of UInt64);
   end;
 
-  uuid.D1 := ((hex2bin[s[0]] shl 28) or (hex2bin[s[1]] shl 24) or (hex2bin[s[2]] shl 20) or (hex2bin[s[3]] shl 16) or
-                (hex2bin[s[4]] shl 12) or (hex2bin[s[5]] shl 8) or (hex2bin[s[6]]  shl 4) or hex2bin[s[7]]);
-  uuid.D2 := (hex2bin[s[9]] shl 12) or (hex2bin[s[10]] shl 8) or (hex2bin[s[11]] shl 4) or hex2bin[s[12]];
-  uuid.D3 := (hex2bin[s[14]] shl 12) or (hex2bin[s[15]] shl 8) or (hex2bin[s[16]] shl 4) or hex2bin[s[17]];
-
-  uuid.D4[0] := (hex2bin[s[19]] shl 4) or hex2bin[s[20]];
-  uuid.D4[1] := (hex2bin[s[21]] shl 4) or hex2bin[s[22]];
-  uuid.D4[2] := (hex2bin[s[24]] shl 4) or hex2bin[s[25]];
-  uuid.D4[3] := (hex2bin[s[26]] shl 4) or hex2bin[s[27]];
-  uuid.D4[4] := (hex2bin[s[28]] shl 4) or hex2bin[s[29]];
-  uuid.D4[5] := (hex2bin[s[30]] shl 4) or hex2bin[s[31]];
-  uuid.D4[6] := (hex2bin[s[32]] shl 4) or hex2bin[s[33]];
-  uuid.D4[7] := (hex2bin[s[34]] shl 4) or hex2bin[s[35]];
+  function ishex(const c: Char): Boolean; inline;
+  begin
+    result := (c < #256) and (AnsiChar(c) in ['0'..'9', 'a'..'z', 'A'..'Z'])
+  end;
+var
+  pos: Byte;
+  state, saved: TState;
+  bracket, separator: Boolean;
+label
+  redo;
+begin
+  FillChar(Uuid^, SizeOf(TGUID), 0);
+  saved := stStart;
+  state := stEatSpaces;
+  bracket := false;
+  separator := false;
+  pos := 0;
+  while true do
+redo:
+  case state of
+    stEatSpaces:
+      begin
+        while true do
+          case p^ of
+            ' ', #13, #10, #9: inc(p);
+          else
+            state := saved;
+            goto redo;
+          end;
+      end;
+    stStart:
+      case p^ of
+        '{':
+          begin
+            bracket := true;
+            inc(p);
+            state := stEatSpaces;
+            saved := stHEX;
+            pos := 0;
+          end;
+      else
+        state := stHEX;
+      end;
+    stHEX:
+      case pos of
+        0..7:
+          if ishex(p^) then
+          begin
+            Uuid.D1 := (Uuid.D1 * 16) + hex2bin[p^];
+            inc(p);
+            inc(pos);
+          end else
+            Exit(False);
+        8:
+          if (p^ = '-') then
+          begin
+            separator := true;
+            inc(p);
+            inc(pos)
+          end else
+            inc(pos);
+        13,18,23:
+           if separator then
+           begin
+             if p^ <> '-' then
+               Exit(False);
+             inc(p);
+             inc(pos);
+           end else
+             inc(pos);
+        9..12:
+          if ishex(p^) then
+          begin
+            TUUID(Uuid^).words[2] := (TUUID(Uuid^).words[2] * 16) + hex2bin[p^];
+            inc(p);
+            inc(pos);
+          end else
+            Exit(False);
+        14..17:
+          if ishex(p^) then
+          begin
+            TUUID(Uuid^).words[3] := (TUUID(Uuid^).words[3] * 16) + hex2bin[p^];
+            inc(p);
+            inc(pos);
+          end else
+            Exit(False);
+        19..20:
+          if ishex(p^) then
+          begin
+            TUUID(Uuid^).bytes[8] := (TUUID(Uuid^).bytes[8] * 16) + hex2bin[p^];
+            inc(p);
+            inc(pos);
+          end else
+            Exit(False);
+        21..22:
+          if ishex(p^) then
+          begin
+            TUUID(Uuid^).bytes[9] := (TUUID(Uuid^).bytes[9] * 16) + hex2bin[p^];
+            inc(p);
+            inc(pos);
+          end else
+            Exit(False);
+        24..25:
+          if ishex(p^) then
+          begin
+            TUUID(Uuid^).bytes[10] := (TUUID(Uuid^).bytes[10] * 16) + hex2bin[p^];
+            inc(p);
+            inc(pos);
+          end else
+            Exit(False);
+        26..27:
+          if ishex(p^) then
+          begin
+            TUUID(Uuid^).bytes[11] := (TUUID(Uuid^).bytes[11] * 16) + hex2bin[p^];
+            inc(p);
+            inc(pos);
+          end else
+            Exit(False);
+        28..29:
+          if ishex(p^) then
+          begin
+            TUUID(Uuid^).bytes[12] := (TUUID(Uuid^).bytes[12] * 16) + hex2bin[p^];
+            inc(p);
+            inc(pos);
+          end else
+            Exit(False);
+        30..31:
+          if ishex(p^) then
+          begin
+            TUUID(Uuid^).bytes[13] := (TUUID(Uuid^).bytes[13] * 16) + hex2bin[p^];
+            inc(p);
+            inc(pos);
+          end else
+            Exit(False);
+        32..33:
+          if ishex(p^) then
+          begin
+            TUUID(Uuid^).bytes[14] := (TUUID(Uuid^).bytes[14] * 16) + hex2bin[p^];
+            inc(p);
+            inc(pos);
+          end else
+            Exit(False);
+        34..35:
+          if ishex(p^) then
+          begin
+            TUUID(Uuid^).bytes[15] := (TUUID(Uuid^).bytes[15] * 16) + hex2bin[p^];
+            inc(p);
+            inc(pos);
+          end else
+            Exit(False);
+        36: if bracket then
+            begin
+              state := stEatSpaces;
+              saved := stBracket;
+            end else
+            begin
+              state := stEatSpaces;
+              saved := stEnd;
+            end;
+      end;
+    stBracket:
+      begin
+        if p^ <> '}' then
+          Exit(False);
+        inc(p);
+        state := stEatSpaces;
+        saved := stEnd;
+      end;
+    stEnd:
+      begin
+        if p^ <> #0 then
+          Exit(False);
+        Break;
+      end;
+  end;
   Result := True;
 end;
 
@@ -5961,14 +6116,29 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
   end;
 
   procedure fromSet;
+  var
+    i: Integer;
   begin
-    if ObjectIsType(obj, stInt) then
-    begin
-      TValue.Make(nil, TypeInfo, Value);
-      TValueData(Value).FAsSLong := obj.AsInteger;
-      Result := True;
-    end else
+    case ObjectGetType(obj) of
+    stInt:
+      begin
+        TValue.Make(nil, TypeInfo, Value);
+        TValueData(Value).FAsSLong := obj.AsInteger;
+        Result := True;
+      end;
+    stString:
+      begin
+        if TryStrToInt(obj.AsString, i) then
+        begin
+          TValue.Make(nil, TypeInfo, Value);
+          TValueData(Value).FAsSLong := i;
+          Result := True;
+        end else
+          Result := False;
+      end;
+    else
       Result := False;
+    end;
   end;
 
   procedure FromFloat(const obj: ISuperObject);
