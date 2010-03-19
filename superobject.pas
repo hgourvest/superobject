@@ -797,7 +797,7 @@ function SA(const Args: array of const): ISuperObject; overload;
 function JavaToDelphiDateTime(const dt: int64): TDateTime;
 function DelphiToJavaDateTime(const dt: TDateTime): int64;
 
-function ISO8201DateToJavaDateTime(const str: SOString; var ms: Int64): Boolean;
+function ISO8601DateToJavaDateTime(const str: SOString; var ms: Int64): Boolean;
 
 
 {$IFDEF VER210}
@@ -1283,7 +1283,7 @@ begin
 end;
 {$ENDIF}
 
-function ISO8201DateToJavaDateTime(const str: SOString; var ms: Int64): Boolean;
+function ISO8601DateToJavaDateTime(const str: SOString; var ms: Int64): Boolean;
 type
   TState = (
     stStart, stYear, stMonth, stWeek, stDay, stDayOfYear,
@@ -2058,7 +2058,7 @@ begin
     end;
   stString:
     begin
-      if ISO8201DateToJavaDateTime(obj.AsString, i) then
+      if ISO8601DateToJavaDateTime(obj.AsString, i) then
       begin
         TValueData(Value).FAsDouble := JavaToDelphiDateTime(i);
         Result := True;
