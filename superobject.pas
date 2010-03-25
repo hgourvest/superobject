@@ -1286,7 +1286,7 @@ end;
 function ISO8601DateToJavaDateTime(const str: SOString; var ms: Int64): Boolean;
 type
   TState = (
-    stStart, stYear, stMonth, stWeek, stDay, stDayOfYear,
+    stStart, stYear, stMonth, stWeek, stWeekDay, stDay, stDayOfYear,
     stHour, stMin, stSec, stMs, stUTC, stGMTH, stGMTM,
     stGMTend, stEnd);
 
@@ -1294,8 +1294,10 @@ type
   TDateTimeInfo = record
     year: Word;
     month: Word;
+    week: Word;
+    weekday: Word;
     day: Word;
-    dayofyear: Word;
+    dayofyear: Integer;
     hour: Word;
     minute: Word;
     second: Word;
@@ -1529,8 +1531,55 @@ begin
       end;
     stWeek:
       begin
-        // not implemented ... very hard
-        goto error;
+        case pos of
+          0..1: if get(st.week, p^) then
+                begin
+                  inc(pos);
+                  inc(p);
+                end else
+                  goto error;
+          2: case p^ of
+               '-': if (sep in [yes, perhaps]) then
+                    begin
+                      Inc(p);
+                      state := stWeekDay;
+                      sep := yes;
+                    end else
+                      goto error;
+               '1'..'7':
+                    if sep in [no, perhaps] then
+                    begin
+                      state := stWeekDay;
+                      sep := no;
+                    end else
+                      goto error;
+             else
+               goto error;
+             end;
+        end;
+      end;
+    stWeekDay:
+      begin
+        if get(st.weekday, p^) then
+        begin
+          inc(p);
+          v := st.year - 1;
+          v := ((v * 365) + (v div 4) - (v div 100) + (v div 400)) mod 7 + 1;
+          st.dayofyear := (st.weekday - v) + ((st.week) * 7) + 1;
+          if v <= 4 then dec(st.dayofyear, 7);
+          case p^ of
+            'T', 't', ' ':
+                 begin
+                   pos := 0;
+                   Inc(p);
+                   state := stHour;
+                 end;
+            #0:  state := stEnd;
+          else
+            goto error;
+          end;
+        end else
+          goto error;
       end;
     stHour:
       case pos of
@@ -1816,7 +1865,7 @@ begin
   if havedate then
   begin
     DayTable := @MonthDays[IsLeapYear(st.year)];
-    if st.dayofyear = 0 then
+    if st.month <> 0 then
     begin
       if not (st.month in [1..12]) or (DayTable[st.month] < st.day) then
         goto error;
