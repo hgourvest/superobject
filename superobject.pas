@@ -797,7 +797,7 @@ function SA(const Args: array of const): ISuperObject; overload;
 function JavaToDelphiDateTime(const dt: int64): TDateTime;
 function DelphiToJavaDateTime(const dt: TDateTime): int64;
 
-function ISO8601DateToJavaDateTime(const str: SOString; var ms: Int64): Boolean;
+function ISO8601DateToJavaDateTime(const str: SOString; var ms: Int64; defaultUTC: boolean = False): Boolean;
 
 
 {$IFDEF VER210}
@@ -1283,7 +1283,7 @@ begin
 end;
 {$ENDIF}
 
-function ISO8601DateToJavaDateTime(const str: SOString; var ms: Int64): Boolean;
+function ISO8601DateToJavaDateTime(const str: SOString; var ms: Int64; defaultUTC: boolean = False): Boolean;
 type
   TState = (
     stStart, stYear, stMonth, stWeek, stWeekDay, stDay, stDayOfYear,
@@ -1392,7 +1392,7 @@ begin
                     pos := 0;
                     state := stMonth;
                   end;
-             'W' :
+             'W', 'w' :
                   begin
                     pos := 0;
                     Inc(p);
@@ -1425,7 +1425,7 @@ begin
                   Inc(pos);
                   Inc(p);
                 end;
-              'W':
+              'W', 'w':
                 begin
                   pos := 0;
                   Inc(p);
@@ -1560,7 +1560,7 @@ begin
       end;
     stWeekDay:
       begin
-        if get(st.weekday, p^) then
+        if (st.week > 0) and get(st.weekday, p^) then
         begin
           inc(p);
           v := st.year - 1;
@@ -1854,12 +1854,13 @@ begin
       end;
     stEnd:
     begin
-      if havedate then  st.bias := GetTimeBias;
+      if havedate and not defaultUTC then
+        st.bias := GetTimeBias;
       Break;
     end;
   end;
 
-  if (st.hour >= 24) or (st.minute >= 60) or (st.second >= 60) and (st.ms >= 1000)
+  if (st.hour >= 24) or (st.minute >= 60) or (st.second >= 60) or (st.ms >= 1000) or (st.week > 53)
     then goto error;
   ms := st.ms + st.second * 1000 + (st.minute + st.bias) * 60000 + st.hour * 3600000;
   if havedate then
