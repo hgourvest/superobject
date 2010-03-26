@@ -107,7 +107,11 @@ type
   SOChar = WideChar;
   SOIChar = Word;
   PSOChar = PWideChar;
+{$IFDEF FPC}
+  SOString = UnicodeString;
+{$ELSE}
   SOString = WideString;
+{$ENDIF}
 {$else}
   SOChar = Char;
   SOIChar = Word;
@@ -1307,7 +1311,7 @@ type
 
 var
   p: PSOChar;
-  state, saved: TState;
+  state: TState;
   pos, v: Word;
   sep: TPerhaps;
   inctz, havedate: Boolean;
@@ -1868,7 +1872,7 @@ begin
     DayTable := @MonthDays[IsLeapYear(st.year)];
     if st.month <> 0 then
     begin
-      if not (st.month in [1..12]) or (DayTable[st.month] < st.day) then
+      if not (st.month in [1..12]) or (DayTable^[st.month] < st.day) then
         goto error;
 
       for v := 1 to  st.month - 1 do
