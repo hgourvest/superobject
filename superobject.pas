@@ -801,7 +801,7 @@ function SA(const Args: array of const): ISuperObject; overload;
 function JavaToDelphiDateTime(const dt: int64): TDateTime;
 function DelphiToJavaDateTime(const dt: TDateTime): int64;
 
-function ISO8601DateToJavaDateTime(const str: SOString; var ms: Int64; defaultUTC: boolean = False): Boolean;
+function ISO8601DateToJavaDateTime(const str: SOString; var ms: Int64): Boolean;
 
 
 {$IFDEF VER210}
@@ -1287,7 +1287,7 @@ begin
 end;
 {$ENDIF}
 
-function ISO8601DateToJavaDateTime(const str: SOString; var ms: Int64; defaultUTC: boolean = False): Boolean;
+function ISO8601DateToJavaDateTime(const str: SOString; var ms: Int64): Boolean;
 type
   TState = (
     stStart, stYear, stMonth, stWeek, stWeekDay, stDay, stDayOfYear,
@@ -1858,8 +1858,7 @@ begin
       end;
     stEnd:
     begin
-      if havedate and not defaultUTC then
-        st.bias := GetTimeBias;
+
       Break;
     end;
   end;
