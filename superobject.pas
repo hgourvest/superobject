@@ -800,7 +800,7 @@ function SA(const Args: array of const): ISuperObject; overload;
 
 function JavaToDelphiDateTime(const dt: int64): TDateTime;
 function DelphiToJavaDateTime(const dt: TDateTime): int64;
-
+function TryObjectToDate(const obj: ISuperObject; var dt: TDateTime): Boolean;
 function ISO8601DateToJavaDateTime(const str: SOString; var ms: Int64): Boolean;
 
 
@@ -1886,6 +1886,30 @@ begin
  Exit;
 error:
   Result := False;
+end;
+
+function TryObjectToDate(const obj: ISuperObject; var dt: TDateTime): Boolean;
+var
+  i: Int64;
+begin
+  case ObjectGetType(obj) of
+  stInt:
+    begin
+      dt := JavaToDelphiDateTime(obj.AsInteger);
+      Result := True;
+    end;
+  stString:
+    begin
+      if ISO8601DateToJavaDateTime(obj.AsString, i) then
+      begin
+        dt := JavaToDelphiDateTime(i);
+        Result := True;
+      end else
+        Result := TryStrToDateTime(obj.AsString, dt);
+    end;
+  else
+    Result := False;
+  end;
 end;
 
 function SO(const s: SOString): ISuperObject; overload;
