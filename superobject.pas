@@ -222,6 +222,7 @@ type
 
     function GetValues: ISuperObject;
     function GetNames: ISuperObject;
+    function Find(const k: SOString; var value: ISuperObject): Boolean;
   end;
 
   TSuperAvlIterator = class
@@ -6492,6 +6493,19 @@ begin
     Entry.Value := nil;
   end;
   inherited;
+end;
+
+function TSuperTableString.Find(const k: SOString; var value: ISuperObject): Boolean;
+var
+  e: TSuperAvlEntry;
+begin
+  e := Search(k);
+  if e <> nil then
+  begin
+    value := e.Value;
+    Result := True;
+  end else
+    Result := False;
 end;
 
 function TSuperTableString.GetO(const k: SOString): ISuperObject;
