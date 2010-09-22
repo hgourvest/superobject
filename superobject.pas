@@ -6705,7 +6705,7 @@ function TSuperRttiContext.AsJson<T>(const obj: T; const index: ISuperObject = n
 var
   v: TValue;
 begin
-  TValue.MakeWithoutCopy(@obj, TypeInfo(T), v);
+  TValue.Make(@obj, TypeInfo(T), v);
   if index <> nil then
     Result := ToJson(v, index) else
     Result := ToJson(v, so);
