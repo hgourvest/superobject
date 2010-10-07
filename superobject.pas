@@ -6771,7 +6771,9 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
       begin
         i := obj.AsInteger;
         TypeData := GetTypeData(TypeInfo);
-        Result := (i >= TypeData.MinValue) and (i <= TypeData.MaxValue);
+        if TypeData.MaxValue > TypeData.MinValue then
+          Result := (i >= TypeData.MinValue) and (i <= TypeData.MaxValue) else
+          Result := (i >= TypeData.MinValue) and (i <= Int64(PCardinal(@TypeData.MaxValue)^));
         if Result then
           TValue.Make(@i, TypeInfo, Value);
       end;
