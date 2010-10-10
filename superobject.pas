@@ -86,12 +86,16 @@
   {$DEFINE HAVE_INLINE}
 {$ifend}
 
+{$if defined(VER210) or defined(VER220)}
+  {$define HAVE_RTTI}
+{$ifend}
+
 unit superobject;
 
 interface
 uses
   Classes
-{$IFDEF VER210}
+{$IFDEF HAVE_RTTI}
   ,Generics.Collections, RTTI, TypInfo
 {$ENDIF}
   ;
@@ -737,7 +741,7 @@ type
     property Processing: boolean read GetProcessing;
   end;
 
-{$IFDEF VER210}
+{$IFDEF HAVE_RTTI}
   TSuperRttiContext = class;
 
   TSerialFromJson = function(ctx: TSuperRttiContext; const obj: ISuperObject; var Value: TValue): Boolean;
@@ -805,7 +809,7 @@ function TryObjectToDate(const obj: ISuperObject; var dt: TDateTime): Boolean;
 function ISO8601DateToJavaDateTime(const str: SOString; var ms: Int64): Boolean;
 
 
-{$IFDEF VER210}
+{$IFDEF HAVE_RTTI}
 
 type
   TSuperInvokeResult = (
@@ -2070,7 +2074,7 @@ begin
   F.val := nil;
 end;
 
-{$IFDEF VER210}
+{$IFDEF HAVE_RTTI}
 
 function serialtoboolean(ctx: TSuperRttiContext; var value: TValue; const index: ISuperObject): ISuperObject;
 begin
@@ -6639,7 +6643,7 @@ begin
 end;
 
 
-{$IFDEF VER210}
+{$IFDEF HAVE_RTTI}
 
 { TSuperAttribute }
 
@@ -6904,7 +6908,11 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
     begin
       if ObjectIsType(obj, stObject) and (f.FieldType <> nil) then
       begin
+{$IFDEF VER210}
         p := IValueData(TValueData(Value).FHeapData).GetReferenceToRawData;
+{$ELSE}
+        p := TValueData(Value).FValueData.GetReferenceToRawData;
+{$ENDIF}
         Result := FromJson(f.FieldType.Handle, GetFieldDefault(f, obj.AsObject[GetFieldName(f)]), v);
         if Result then
           f.SetValue(p, v) else
@@ -7218,7 +7226,11 @@ function TSuperRttiContext.ToJson(var value: TValue; const index: ISuperObject):
     Result := TSuperObject.Create(stObject);
     for f in Context.GetType(Value.TypeInfo).GetFields do
     begin
+{$IFDEF VER210}
       v := f.GetValue(IValueData(TValueData(Value).FHeapData).GetReferenceToRawData);
+{$ELSE}
+      v := f.GetValue(TValueData(Value).FValueData.GetReferenceToRawData);
+{$ENDIF}
       Result.AsObject[GetFieldName(f)] := ToJson(v, index);
     end;
   end;
@@ -7292,10 +7304,23 @@ function TSuperRttiContext.ToJson(var value: TValue; const index: ISuperObject):
   end;
 
   procedure ToInterface;
+  var
+    intf: IInterface;
   begin
+{$IFDEF VER210}
     if TValueData(Value).FHeapData <> nil then
       TValueData(Value).FHeapData.QueryInterface(ISuperObject, Result) else
       Result := nil;
+{$ELSE}
+    if TValueData(Value).FValueData <> nil then
+    begin
+      intf := IInterface(PPointer(TValueData(Value).FValueData.GetReferenceToRawData)^);
+      if intf <> nil then
+        intf.QueryInterface(ISuperObject, Result) else
+        Result := nil;
+    end else
+      Result := nil;
+{$ENDIF}
   end;
 
 var
