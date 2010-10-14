@@ -807,6 +807,8 @@ function JavaToDelphiDateTime(const dt: int64): TDateTime;
 function DelphiToJavaDateTime(const dt: TDateTime): int64;
 function TryObjectToDate(const obj: ISuperObject; var dt: TDateTime): Boolean;
 function ISO8601DateToJavaDateTime(const str: SOString; var ms: Int64): Boolean;
+function ISO8601DateToDelphiDateTime(const str: SOString; var dt: TDateTime): Boolean;
+function DelphiDateTimeToISO8601Date(dt: TDateTime): SOString;
 
 
 {$IFDEF HAVE_RTTI}
@@ -994,8 +996,9 @@ var
   tzi : TTimeZoneInformation;
 begin
   case GetTimeZoneInformation(tzi) of
-    TIME_ZONE_ID_STANDARD: Result := tzi.Bias;
-    TIME_ZONE_ID_DAYLIGHT: Result := tzi.DaylightBias;
+    TIME_ZONE_ID_UNKNOWN : Result := tzi.Bias;
+    TIME_ZONE_ID_STANDARD: Result := tzi.Bias + tzi.StandardBias;
+    TIME_ZONE_ID_DAYLIGHT: Result := tzi.Bias + tzi.DaylightBias;
   else
     Result := 0;
   end;
@@ -1786,7 +1789,29 @@ begin
           st.ms := st.ms * 10 + ord(p^) - ord('0');
           inc(p);
         end;
-        'Z', 'z': state := stUTC;
+        '+':
+          if havedate then
+          begin
+            state := stGMTH;
+            pos := 0;
+            v := 0;
+            inc(p);
+          end else
+            goto error;
+        '-':
+          if havedate then
+          begin
+            state := stGMTH;
+            pos := 0;
+            v := 0;
+            inc(p);
+            inctz := True;
+          end else
+            goto error;
+        'Z', 'z':
+             if havedate then
+               state := stUTC else
+               goto error;
         #0: state := stEnd;
       else
         goto error;
@@ -1891,6 +1916,35 @@ begin
  Exit;
 error:
   Result := False;
+end;
+
+function ISO8601DateToDelphiDateTime(const str: SOString; var dt: TDateTime): Boolean;
+var
+  ms: Int64;
+begin
+  Result := ISO8601DateToJavaDateTime(str, ms);
+  if Result then
+    dt := JavaToDelphiDateTime(ms)
+end;
+
+function DelphiDateTimeToISO8601Date(dt: TDateTime): SOString;
+var
+  year, month, day, hour, min, sec, msec: Word;
+  tzh: SmallInt;
+  tzm: Word;
+  sign: SOChar;
+  bias: Integer;
+begin
+  DecodeDate(dt, year, month, day);
+  DecodeTime(dt, hour, min, sec, msec);
+  bias := GetTimeBias;
+  tzh := Abs(bias) div 60;
+  tzm := Abs(bias) - tzh * 60;
+  if Bias > 0 then
+    sign := '-' else
+    sign := '+';
+  Result := Format('%.4d-%.2d-%.2dT%.2d:%.2d:%.2d,%d%s%.2d:%.2d',
+    [year, month, day, hour, min, sec, msec, sign, tzh, tzm]);
 end;
 
 function TryObjectToDate(const obj: ISuperObject; var dt: TDateTime): Boolean;
