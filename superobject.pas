@@ -7358,8 +7358,10 @@ function TSuperRttiContext.ToJson(var value: TValue; const index: ISuperObject):
   end;
 
   procedure ToInterface;
+{$IFNDEF VER210}
   var
     intf: IInterface;
+{$ENDIF}
   begin
 {$IFDEF VER210}
     if TValueData(Value).FHeapData <> nil then
