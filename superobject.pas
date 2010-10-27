@@ -1080,7 +1080,7 @@ begin
     First := (6 + compareDate^.wDayOfWeek - date^.wDayOfWeek + date^.wDay) mod 7 + 1;
     limit_day := First + 7 * (weekofmonth - 1);
     (* check needed for the 5th weekday of the month *)
-    if (limit_day > MonthDays[(date^.wMonth=2) and IsLeapYear(date^.wYear)][date^.wMonth - 1]) then
+    if (limit_day > MonthDays[(date^.wMonth=2) and IsLeapYear(date^.wYear)][date^.wMonth]) then
       dec(limit_day, 7);
   end
   else
