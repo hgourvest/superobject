@@ -4333,7 +4333,10 @@ begin
             prop1.Merge(ite.val) else
             if reference then
               PutO(ite.key, ite.val) else
-              PutO(ite.key, ite.val.Clone);
+              if ite.val <> nil then
+                PutO(ite.key, ite.val.Clone) else
+                PutO(ite.key, nil)
+
         until not ObjectFindNext(ite);
         ObjectFindClose(ite);
       end;
@@ -4349,7 +4352,9 @@ begin
             prop1.Merge(prop2) else
             if reference then
               PutO(j, prop2) else
-              PutO(j, prop2.Clone);
+              if prop2 <> nil then
+                PutO(j, prop2.Clone) else
+                PutO(j, nil);
         end;
       end;
   end;
