@@ -1322,7 +1322,7 @@ var
   state: TState;
   pos, v: Word;
   sep: TPerhaps;
-  inctz, havedate: Boolean;
+  inctz, havetz, havedate: Boolean;
   st: TDateTimeInfo;
   DayTable: PDayTable;
 
@@ -1346,6 +1346,7 @@ begin
   FillChar(st, SizeOf(st), 0);
   havedate := True;
   inctz := False;
+  havetz := False;
 
   while true do
   case state of
@@ -1818,49 +1819,52 @@ begin
       end;
     stUTC: // = GMT 0
       begin
-        //SystemTimeToTzSpecificLocalTime(nil, @st, @st);
+        havetz := True;
         inc(p);
         if p^ = #0 then
           Break else
           goto error;
       end;
     stGMTH:
-      case pos of
-        0..1: if get(v, p^) then
-              begin
-                inc(p);
-                inc(pos);
-              end else
+      begin
+        havetz := True;
+        case pos of
+          0..1: if get(v, p^) then
+                begin
+                  inc(p);
+                  inc(pos);
+                end else
+                  goto error;
+          2:
+            begin
+              st.bias := v * 60;
+              case p^ of
+                ':': if sep in [yes, perhaps] then
+                     begin
+                       state := stGMTM;
+                       inc(p);
+                       pos := 0;
+                       v := 0;
+                       sep := yes;
+                     end else
+                       goto error;
+                '0'..'9':
+                     if sep in [no, perhaps] then
+                     begin
+                       state := stGMTM;
+                       pos := 1;
+                       sep := no;
+                       inc(p);
+                       v := ord(p^) - ord('0');
+                     end else
+                       goto error;
+                #0: state := stGMTend;
+              else
                 goto error;
-        2:
-          begin
-            st.bias := v * 60;
-            case p^ of
-              ':': if sep in [yes, perhaps] then
-                   begin
-                     state := stGMTM;
-                     inc(p);
-                     pos := 0;
-                     v := 0;
-                     sep := yes;
-                   end else
-                     goto error;
-              '0'..'9':
-                   if sep in [no, perhaps] then
-                   begin
-                     state := stGMTM;
-                     pos := 1;
-                     sep := no;
-                     inc(p);
-                     v := ord(p^) - ord('0');
-                   end else
-                     goto error;
-              #0: state := stGMTend;
-            else
-              goto error;
-            end;
+              end;
 
-          end;
+            end;
+        end;
       end;
     stGMTM:
       case pos of
@@ -1895,6 +1899,10 @@ begin
 
   if (st.hour >= 24) or (st.minute >= 60) or (st.second >= 60) or (st.ms >= 1000) or (st.week > 53)
     then goto error;
+
+  if not havetz then
+    st.bias := GetTimeBias;
+
   ms := st.ms + st.second * 1000 + (st.minute + st.bias) * 60000 + st.hour * 3600000;
   if havedate then
   begin
