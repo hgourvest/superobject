@@ -90,6 +90,9 @@
   {$define HAVE_RTTI}
 {$ifend}
 
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+
 unit superobject;
 
 interface
@@ -6494,7 +6497,6 @@ begin
   Result := ISuperObject(FPtr)
 end;
 
-{$OVERFLOWCHECKS OFF}
 class function TSuperAvlEntry.Hash(const k: SOString): Cardinal;
 var
   h: cardinal;
@@ -6505,7 +6507,6 @@ begin
     h := h*129 + ord(k[i]) + $9e370001;
   Result := h;
 end;
-{$OVERFLOWCHECKS ON}
 
 procedure TSuperAvlEntry.SetValue(const val: ISuperObject);
 begin
