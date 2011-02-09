@@ -15,6 +15,12 @@ function XMLParseString(const data: SOString; pack: Boolean = false; onpi: TOnPr
 function XMLParseStream(stream: TStream; pack: Boolean = false; onpi: TOnProcessingInstruction = nil): ISuperObject;
 function XMLParseFile(const FileName: string; pack: Boolean = false; onpi: TOnProcessingInstruction = nil): ISuperObject;
 
+{$IFDEF UNICODE}
+type
+  TXMLWriteMethod = reference to procedure(const data: string);
+procedure XMLWrite(const node: ISuperObject; const method: TXMLWriteMethod);
+{$ENDIF}
+
 const
   xmlname       = '#name';
   xmlattributes = '#attributes';
@@ -87,6 +93,31 @@ type
   TSuperXMLElementClass = (xcNone, xcElement, xcComment, xcString, xcCdata, xcDocType, xcProcessInst);
   TSuperXMLEncoding = ({$IFNDEF UNIX}xnANSI,{$ENDIF} xnUTF8, xnUnicode);
 
+{$IFDEF UNICODE}
+  procedure XMLWrite(const node: ISuperObject; const method: TXMLWriteMethod);
+  var
+    o: ISuperObject;
+    ent: TSuperAvlEntry;
+    str: string;
+  begin
+    str := '<' + node.S[xmlname];
+    if ObjectIsType(node[xmlattributes], stObject) then
+      for ent in node[xmlattributes].AsObject do
+        str := str + ' ' + ent.Name + '="' + ent.Value.AsString + '"';
+    if ObjectIsType(node[xmlchildren], stArray) then
+    begin
+      method(str + '>');
+      for o in node[xmlchildren] do
+        if ObjectIsType(o, stString) then
+          method(o.AsString) else
+          XMLWrite(o, method);
+      method('</' + node.S[xmlname] + '>');
+    end else
+      method(str + '/>');
+  end;
+{$ENDIF}
+
+type
   PSuperXMLStack = ^TSuperXMLStack;
   TSuperXMLStack = record
     state: TSuperXMLState;
