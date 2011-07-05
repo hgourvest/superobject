@@ -86,7 +86,7 @@
   {$DEFINE HAVE_INLINE}
 {$ifend}
 
-{$if defined(VER210) or defined(VER220)}
+{$if defined(VER210) or defined(VER220) or defined(VER230)}
   {$define HAVE_RTTI}
 {$ifend}
 
@@ -105,8 +105,13 @@ uses
 
 type
 {$IFNDEF FPC}
+{$IFDEF CPUX64}
+  PtrInt = Int64;
+  PtrUInt = UInt64;
+{$ELSE}
   PtrInt = longint;
   PtrUInt = Longword;
+{$ENDIF}
 {$ENDIF}
   SuperInt = Int64;
 
@@ -251,7 +256,7 @@ type
     property Current: TSuperAvlEntry read GetIter;
   end;
 
-  TSuperObjectArray = array[0..(high(PtrInt) div sizeof(TSuperObject))-1] of ISuperObject;
+  TSuperObjectArray = array[0..(high(Integer) div sizeof(TSuperObject))-1] of ISuperObject;
   PSuperObjectArray = ^TSuperObjectArray;
 
   TSuperArray = class
@@ -812,7 +817,7 @@ function TryObjectToDate(const obj: ISuperObject; var dt: TDateTime): Boolean;
 function ISO8601DateToJavaDateTime(const str: SOString; var ms: Int64): Boolean;
 function ISO8601DateToDelphiDateTime(const str: SOString; var dt: TDateTime): Boolean;
 function DelphiDateTimeToISO8601Date(dt: TDateTime): SOString;
-
+function UuidFromString(p: PSOChar; Uuid: PGUID): Boolean;
 
 {$IFDEF HAVE_RTTI}
 
@@ -6985,7 +6990,10 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
         Result := FromJson(f.FieldType.Handle, GetFieldDefault(f, obj.AsObject[GetFieldName(f)]), v);
         if Result then
           f.SetValue(p, v) else
-          Exit;
+          begin
+            Writeln(f.Name);
+            Exit;
+          end;
       end else
       begin
         Result := False;
