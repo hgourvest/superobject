@@ -817,7 +817,8 @@ function TryObjectToDate(const obj: ISuperObject; var dt: TDateTime): Boolean;
 function ISO8601DateToJavaDateTime(const str: SOString; var ms: Int64): Boolean;
 function ISO8601DateToDelphiDateTime(const str: SOString; var dt: TDateTime): Boolean;
 function DelphiDateTimeToISO8601Date(dt: TDateTime): SOString;
-function UuidFromString(p: PSOChar; Uuid: PGUID): Boolean;
+function UUIDToString(const g: TGUID): string;
+function StringToUUID(const str: string; var g: TGUID): Boolean;
 
 {$IFDEF HAVE_RTTI}
 
@@ -2422,6 +2423,21 @@ redo:
   end;
   Result := True;
 end;
+
+function UUIDToString(const g: TGUID): string;
+begin
+  Result := format('%.8x%.4x%.4x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x',
+    [g.D1, g.D2, g.D3,
+     g.D4[0], g.D4[1], g.D4[2],
+     g.D4[3], g.D4[4], g.D4[5],
+     g.D4[6], g.D4[7]]);
+end;
+
+function StringToUUID(const str: string; var g: TGUID): Boolean;
+begin
+  Result := UuidFromString(PSOChar(str), @g);
+end;
+
 
 function serialfromguid(ctx: TSuperRttiContext; const obj: ISuperObject; var Value: TValue): Boolean;
 begin
