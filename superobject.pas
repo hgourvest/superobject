@@ -1636,7 +1636,7 @@ begin
                     state := stMin;
                   end else
                     goto error;
-             ',':
+             ',', '.':
                 begin
                   Inc(p);
                   state := stMs;
@@ -1710,7 +1710,7 @@ begin
                     sep := yes;
                   end else
                     goto error;
-             ',':
+             ',', '.':
                 begin
                   Inc(p);
                   state := stMs;
@@ -1759,7 +1759,7 @@ begin
               end else
                 goto error;
         2:    case p^ of
-               ',':
+               ',', '.':
                   begin
                     Inc(p);
                     state := stMs;
