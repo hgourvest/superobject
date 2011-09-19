@@ -1225,17 +1225,14 @@ redo:
           end;
         end;
 
-        if (ch >= min) then
+        if (ret >= min) then
         begin
           dst^ := WideChar(ret);
           inc(Result);
         end else
-        begin
           // too small utf8 bloc
           // ignore and continue
           Continue;
-        end;
-
     end;
     inc(dst);
   end;
