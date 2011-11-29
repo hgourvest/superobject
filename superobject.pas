@@ -90,6 +90,10 @@
   {$define HAVE_RTTI}
 {$ifend}
 
+{$if defined(VER230)}
+  {$define NEED_FORMATSETTINGS}
+{$ifend}
+
 {$OVERFLOWCHECKS OFF}
 {$RANGECHECKS OFF}
 
@@ -959,11 +963,11 @@ var
   p: PSOChar;
 begin
   Result := FloatToStr(value);
-  if DecimalSeparator <> '.' then
+  if {$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$ifend}DecimalSeparator <> '.' then
   begin
     p := PSOChar(Result);
     while p^ <> #0 do
-      if p^ <> SOChar(DecimalSeparator) then
+      if p^ <> SOChar({$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$ifend}DecimalSeparator) then
       inc(p) else
       begin
         p^ := '.';
@@ -977,11 +981,11 @@ var
   p: PSOChar;
 begin
   Result := CurrToStr(value);
-  if DecimalSeparator <> '.' then
+  if {$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$ifend}DecimalSeparator <> '.' then
   begin
     p := PSOChar(Result);
     while p^ <> #0 do
-      if p^ <> SOChar(DecimalSeparator) then
+      if p^ <> SOChar({$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$ifend}DecimalSeparator) then
       inc(p) else
       begin
         p^ := '.';
