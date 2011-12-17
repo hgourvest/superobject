@@ -8,6 +8,9 @@
  * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
  * the specific language governing rights and limitations under the License.
  *
+ * Embarcadero Technologies Inc is not permitted to use or redistribute
+ * this source code without explicit permission.
+ *
  * Unit owner : Henri Gourvest <hgourvest@gmail.com>
  * Web site   : http://www.progdigy.com
  *
