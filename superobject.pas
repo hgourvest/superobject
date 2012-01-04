@@ -97,6 +97,10 @@
   {$define NEED_FORMATSETTINGS}
 {$ifend}
 
+{$if defined(FPC) and defined(VER2_6)}
+  {$define NEED_FORMATSETTINGS}
+{$ifend}
+
 {$OVERFLOWCHECKS OFF}
 {$RANGECHECKS OFF}
 
@@ -638,7 +642,11 @@ type
     function GetDataPtr: Pointer;
     procedure SetDataPtr(const Value: Pointer);
   protected
+{$IFDEF FPC}
+    function QueryInterface({$IFDEF FPC_HAS_CONSTREF}constref{$ELSE}const{$ENDIF} iid: tguid; out obj): longint;{$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
+{$ELSE}
     function QueryInterface(const IID: TGUID; out Obj): HResult; virtual; stdcall;
+{$ENDIF}
     function _AddRef: Integer; virtual; stdcall;
     function _Release: Integer; virtual; stdcall;
 
@@ -2085,7 +2093,11 @@ begin
     varInt64:    Result := TSuperObject.Create(VInt64);
     varString:   Result := TSuperObject.Create(SOString(AnsiString(VString)));
 {$if declared(varUString)}
+  {$IFDEF FPC}
+    varUString:  Result := TSuperObject.Create(SOString(UnicodeString(VString)));
+  {$ELSE}
     varUString:  Result := TSuperObject.Create(SOString(string(VUString)));
+  {$ENDIF}
 {$ifend}
   else
     raise Exception.CreateFmt('Unsuported variant data type: %d', [VType]);
@@ -2150,89 +2162,6 @@ procedure ObjectFindClose(var F: TSuperObjectIter);
 begin
   F.Ite.Free;
   F.val := nil;
-end;
-
-{$IFDEF HAVE_RTTI}
-
-function serialtoboolean(ctx: TSuperRttiContext; var value: TValue; const index: ISuperObject): ISuperObject;
-begin
-  Result := TSuperObject.Create(TValueData(value).FAsSLong <> 0);
-end;
-
-function serialtodatetime(ctx: TSuperRttiContext; var value: TValue; const index: ISuperObject): ISuperObject;
-begin
-  Result := TSuperObject.Create(DelphiToJavaDateTime(TValueData(value).FAsDouble));
-end;
-
-function serialtoguid(ctx: TSuperRttiContext; var value: TValue; const index: ISuperObject): ISuperObject;
-var
-  g: TGUID;
-begin
-  value.ExtractRawData(@g);
-  Result := TSuperObject.Create(
-    format('%.8x-%.4x-%.4x-%.2x%.2x-%.2x%.2x%.2x%.2x%.2x%.2x',
-              [g.D1, g.D2, g.D3,
-               g.D4[0], g.D4[1], g.D4[2],
-               g.D4[3], g.D4[4], g.D4[5],
-               g.D4[6], g.D4[7]])
-  );
-end;
-
-function serialfromboolean(ctx: TSuperRttiContext; const obj: ISuperObject; var Value: TValue): Boolean;
-var
-  o: ISuperObject;
-begin
-  case ObjectGetType(obj) of
-  stBoolean:
-    begin
-      TValueData(Value).FAsSLong := obj.AsInteger;
-      Result := True;
-    end;
-  stInt:
-    begin
-      TValueData(Value).FAsSLong := ord(obj.AsInteger <> 0);
-      Result := True;
-    end;
-  stString:
-    begin
-      o := SO(obj.AsString);
-      if not ObjectIsType(o, stString) then
-        Result := serialfromboolean(ctx, SO(obj.AsString), Value) else
-        Result := False;
-    end;
-  else
-    Result := False;
-  end;
-end;
-
-function serialfromdatetime(ctx: TSuperRttiContext; const obj: ISuperObject; var Value: TValue): Boolean;
-var
-  dt: TDateTime;
-  i: Int64;
-begin
-  case ObjectGetType(obj) of
-  stInt:
-    begin
-      TValueData(Value).FAsDouble := JavaToDelphiDateTime(obj.AsInteger);
-      Result := True;
-    end;
-  stString:
-    begin
-      if ISO8601DateToJavaDateTime(obj.AsString, i) then
-      begin
-        TValueData(Value).FAsDouble := JavaToDelphiDateTime(i);
-        Result := True;
-      end else
-      if TryStrToDateTime(obj.AsString, dt) then
-      begin
-        TValueData(Value).FAsDouble := dt;
-        Result := True;
-      end else
-        Result := False;
-    end;
-  else
-    Result := False;
-  end;
 end;
 
 function UuidFromString(p: PSOChar; Uuid: PGUID): Boolean;
@@ -2301,7 +2230,7 @@ redo:
         0..7:
           if ishex(p^) then
           begin
-            Uuid.D1 := (Uuid.D1 * 16) + hex2bin[p^];
+            Uuid^.D1 := (Uuid^.D1 * 16) + hex2bin[p^];
             inc(p);
             inc(pos);
           end else
@@ -2445,6 +2374,88 @@ begin
   Result := UuidFromString(PSOChar(str), @g);
 end;
 
+{$IFDEF HAVE_RTTI}
+
+function serialtoboolean(ctx: TSuperRttiContext; var value: TValue; const index: ISuperObject): ISuperObject;
+begin
+  Result := TSuperObject.Create(TValueData(value).FAsSLong <> 0);
+end;
+
+function serialtodatetime(ctx: TSuperRttiContext; var value: TValue; const index: ISuperObject): ISuperObject;
+begin
+  Result := TSuperObject.Create(DelphiToJavaDateTime(TValueData(value).FAsDouble));
+end;
+
+function serialtoguid(ctx: TSuperRttiContext; var value: TValue; const index: ISuperObject): ISuperObject;
+var
+  g: TGUID;
+begin
+  value.ExtractRawData(@g);
+  Result := TSuperObject.Create(
+    format('%.8x-%.4x-%.4x-%.2x%.2x-%.2x%.2x%.2x%.2x%.2x%.2x',
+              [g.D1, g.D2, g.D3,
+               g.D4[0], g.D4[1], g.D4[2],
+               g.D4[3], g.D4[4], g.D4[5],
+               g.D4[6], g.D4[7]])
+  );
+end;
+
+function serialfromboolean(ctx: TSuperRttiContext; const obj: ISuperObject; var Value: TValue): Boolean;
+var
+  o: ISuperObject;
+begin
+  case ObjectGetType(obj) of
+  stBoolean:
+    begin
+      TValueData(Value).FAsSLong := obj.AsInteger;
+      Result := True;
+    end;
+  stInt:
+    begin
+      TValueData(Value).FAsSLong := ord(obj.AsInteger <> 0);
+      Result := True;
+    end;
+  stString:
+    begin
+      o := SO(obj.AsString);
+      if not ObjectIsType(o, stString) then
+        Result := serialfromboolean(ctx, SO(obj.AsString), Value) else
+        Result := False;
+    end;
+  else
+    Result := False;
+  end;
+end;
+
+function serialfromdatetime(ctx: TSuperRttiContext; const obj: ISuperObject; var Value: TValue): Boolean;
+var
+  dt: TDateTime;
+  i: Int64;
+begin
+  case ObjectGetType(obj) of
+  stInt:
+    begin
+      TValueData(Value).FAsDouble := JavaToDelphiDateTime(obj.AsInteger);
+      Result := True;
+    end;
+  stString:
+    begin
+      if ISO8601DateToJavaDateTime(obj.AsString, i) then
+      begin
+        TValueData(Value).FAsDouble := JavaToDelphiDateTime(i);
+        Result := True;
+      end else
+      if TryStrToDateTime(obj.AsString, dt) then
+      begin
+        TValueData(Value).FAsDouble := dt;
+        Result := True;
+      end else
+        Result := False;
+    end;
+  else
+    Result := False;
+  end;
+end;
 
 function serialfromguid(ctx: TSuperRttiContext; const obj: ISuperObject; var Value: TValue): Boolean;
 begin
@@ -4189,7 +4200,12 @@ begin
   ParseString(PSOChar(path), true, False, self, [foCreatePath, foPutValue], TSuperObject.Create(Value));
 end;
 
+
+{$IFDEF FPC}
+function TSuperObject.QueryInterface({$IFDEF FPC_HAS_CONSTREF}constref{$ELSE}const{$ENDIF} iid: tguid; out obj): longint;{$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
+{$ELSE}
 function TSuperObject.QueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
+{$ENDIF}
 begin
   if GetInterface(IID, Obj) then
     Result := 0
