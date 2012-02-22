@@ -298,7 +298,12 @@ type
   public
     constructor Create; virtual;
     destructor Destroy; override;
-    function Add(const Data: ISuperObject): Integer;
+    function Add(const Data: ISuperObject): Integer; overload;
+    function Add(Data: SuperInt): Integer; overload;
+    function Add(const Data: SOString): Integer; overload;
+    function Add(Data: Boolean): Integer; overload;
+    function Add(Data: Double): Integer; overload;
+    function AddC(const Data: Currency): Integer;
     function Delete(index: Integer): ISuperObject;
     procedure Insert(index: Integer; const value: ISuperObject);
     procedure Clear(all: boolean = false);
@@ -5325,6 +5330,31 @@ function TSuperArray.Add(const Data: ISuperObject): Integer;
 begin
   Result := FLength;
   PutO(Result, data);
+end;
+
+function TSuperArray.Add(Data: SuperInt): Integer;
+begin
+  Result := Add(TSuperObject.Create(Data));
+end;
+
+function TSuperArray.Add(const Data: SOString): Integer;
+begin
+  Result := Add(TSuperObject.Create(Data));
+end;
+
+function TSuperArray.Add(Data: Boolean): Integer;
+begin
+  Result := Add(TSuperObject.Create(Data));
+end;
+
+function TSuperArray.Add(Data: Double): Integer;
+begin
+  Result := Add(TSuperObject.Create(Data));
+end;
+
+function TSuperArray.AddC(const Data: Currency): Integer;
+begin
+  Result := Add(TSuperObject.CreateCurrency(Data));
 end;
 
 function TSuperArray.Delete(index: Integer): ISuperObject;
