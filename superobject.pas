@@ -3061,9 +3061,12 @@ end;
 
 function TSuperObject.AsString: SOString;
 begin
-  if FDataType = stString then
-    Result := FOString else
+  case FDataType of
+    stString: Result := FOString;
+    stNull: Result := '';
+  else
     Result := AsJSon(false, false);
+  end;
 end;
 
 function TSuperObject.GetEnumerator: TSuperEnumerator;
