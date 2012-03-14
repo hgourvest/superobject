@@ -837,8 +837,8 @@ function TryObjectToDate(const obj: ISuperObject; var dt: TDateTime): Boolean;
 function ISO8601DateToJavaDateTime(const str: SOString; var ms: Int64): Boolean;
 function ISO8601DateToDelphiDateTime(const str: SOString; var dt: TDateTime): Boolean;
 function DelphiDateTimeToISO8601Date(dt: TDateTime): SOString;
-function UUIDToString(const g: TGUID): string;
-function StringToUUID(const str: string; var g: TGUID): Boolean;
+function UUIDToString(const g: TGUID): SOString;
+function StringToUUID(const str: SOString; var g: TGUID): Boolean;
 
 {$IFDEF HAVE_RTTI}
 
@@ -2171,7 +2171,7 @@ end;
 
 function UuidFromString(p: PSOChar; Uuid: PGUID): Boolean;
 const
-  hex2bin: array[#48..#102] of Byte = (
+  hex2bin: array[48..102] of Byte = (
      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 0, 0, 0, 0,
      0,10,11,12,13,14,15, 0, 0, 0, 0, 0, 0, 0, 0, 0,
      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -2187,7 +2187,7 @@ type
       4: (i64s: array[0..1] of UInt64);
   end;
 
-  function ishex(const c: Char): Boolean; {$IFDEF HAVE_INLINE} inline;{$ENDIF}
+  function ishex(const c: SOChar): Boolean; {$IFDEF HAVE_INLINE} inline;{$ENDIF}
   begin
     result := (c < #256) and (AnsiChar(c) in ['0'..'9', 'a'..'z', 'A'..'Z'])
   end;
@@ -2235,11 +2235,14 @@ redo:
         0..7:
           if ishex(p^) then
           begin
-            Uuid^.D1 := (Uuid^.D1 * 16) + hex2bin[p^];
+            Uuid^.D1 := (Uuid^.D1 * 16) + hex2bin[Ord(p^)];
             inc(p);
             inc(pos);
           end else
-            Exit(False);
+          begin
+            Result := False;
+            Exit;
+          end;
         8:
           if (p^ = '-') then
           begin
@@ -2252,7 +2255,10 @@ redo:
            if separator then
            begin
              if p^ <> '-' then
-               Exit(False);
+             begin
+               Result := False;
+               Exit;
+             end;
              inc(p);
              inc(pos);
            end else
@@ -2260,83 +2266,113 @@ redo:
         9..12:
           if ishex(p^) then
           begin
-            TUUID(Uuid^).words[2] := (TUUID(Uuid^).words[2] * 16) + hex2bin[p^];
+            TUUID(Uuid^).words[2] := (TUUID(Uuid^).words[2] * 16) + hex2bin[Ord(p^)];
             inc(p);
             inc(pos);
           end else
-            Exit(False);
+          begin
+            Result := False;
+            Exit;
+          end;
         14..17:
           if ishex(p^) then
           begin
-            TUUID(Uuid^).words[3] := (TUUID(Uuid^).words[3] * 16) + hex2bin[p^];
+            TUUID(Uuid^).words[3] := (TUUID(Uuid^).words[3] * 16) + hex2bin[Ord(p^)];
             inc(p);
             inc(pos);
           end else
-            Exit(False);
+          begin
+            Result := False;
+            Exit;
+          end;
         19..20:
           if ishex(p^) then
           begin
-            TUUID(Uuid^).bytes[8] := (TUUID(Uuid^).bytes[8] * 16) + hex2bin[p^];
+            TUUID(Uuid^).bytes[8] := (TUUID(Uuid^).bytes[8] * 16) + hex2bin[Ord(p^)];
             inc(p);
             inc(pos);
           end else
-            Exit(False);
+          begin
+            Result := False;
+            Exit;
+          end;
         21..22:
           if ishex(p^) then
           begin
-            TUUID(Uuid^).bytes[9] := (TUUID(Uuid^).bytes[9] * 16) + hex2bin[p^];
+            TUUID(Uuid^).bytes[9] := (TUUID(Uuid^).bytes[9] * 16) + hex2bin[Ord(p^)];
             inc(p);
             inc(pos);
           end else
-            Exit(False);
+          begin
+            Result := False;
+            Exit;
+          end;
         24..25:
           if ishex(p^) then
           begin
-            TUUID(Uuid^).bytes[10] := (TUUID(Uuid^).bytes[10] * 16) + hex2bin[p^];
+            TUUID(Uuid^).bytes[10] := (TUUID(Uuid^).bytes[10] * 16) + hex2bin[Ord(p^)];
             inc(p);
             inc(pos);
           end else
-            Exit(False);
+          begin
+            Result := False;
+            Exit;
+          end;
         26..27:
           if ishex(p^) then
           begin
-            TUUID(Uuid^).bytes[11] := (TUUID(Uuid^).bytes[11] * 16) + hex2bin[p^];
+            TUUID(Uuid^).bytes[11] := (TUUID(Uuid^).bytes[11] * 16) + hex2bin[Ord(p^)];
             inc(p);
             inc(pos);
           end else
-            Exit(False);
+          begin
+            Result := False;
+            Exit;
+          end;
         28..29:
           if ishex(p^) then
           begin
-            TUUID(Uuid^).bytes[12] := (TUUID(Uuid^).bytes[12] * 16) + hex2bin[p^];
+            TUUID(Uuid^).bytes[12] := (TUUID(Uuid^).bytes[12] * 16) + hex2bin[Ord(p^)];
             inc(p);
             inc(pos);
           end else
-            Exit(False);
+          begin
+            Result := False;
+            Exit;
+          end;
         30..31:
           if ishex(p^) then
           begin
-            TUUID(Uuid^).bytes[13] := (TUUID(Uuid^).bytes[13] * 16) + hex2bin[p^];
+            TUUID(Uuid^).bytes[13] := (TUUID(Uuid^).bytes[13] * 16) + hex2bin[Ord(p^)];
             inc(p);
             inc(pos);
           end else
-            Exit(False);
+          begin
+            Result := False;
+            Exit;
+          end;
         32..33:
           if ishex(p^) then
           begin
-            TUUID(Uuid^).bytes[14] := (TUUID(Uuid^).bytes[14] * 16) + hex2bin[p^];
+            TUUID(Uuid^).bytes[14] := (TUUID(Uuid^).bytes[14] * 16) + hex2bin[Ord(p^)];
             inc(p);
             inc(pos);
           end else
-            Exit(False);
+          begin
+            Result := False;
+            Exit;
+          end;
         34..35:
           if ishex(p^) then
           begin
-            TUUID(Uuid^).bytes[15] := (TUUID(Uuid^).bytes[15] * 16) + hex2bin[p^];
+            TUUID(Uuid^).bytes[15] := (TUUID(Uuid^).bytes[15] * 16) + hex2bin[Ord(p^)];
             inc(p);
             inc(pos);
           end else
-            Exit(False);
+          begin
+            Result := False;
+            Exit;
+          end;
         36: if bracket then
             begin
               state := stEatSpaces;
@@ -2350,7 +2386,10 @@ redo:
     stBracket:
       begin
         if p^ <> '}' then
-          Exit(False);
+        begin
+          Result := False;
+          Exit;
+        end;
         inc(p);
         state := stEatSpaces;
         saved := stEnd;
@@ -2358,14 +2397,17 @@ redo:
     stEnd:
       begin
         if p^ <> #0 then
-          Exit(False);
+        begin
+          Result := False;
+          Exit;
+        end;
         Break;
       end;
   end;
   Result := True;
 end;
 
-function UUIDToString(const g: TGUID): string;
+function UUIDToString(const g: TGUID): SOString;
 begin
   Result := format('%.8x%.4x%.4x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x',
     [g.D1, g.D2, g.D3,
@@ -2374,7 +2416,7 @@ begin
      g.D4[6], g.D4[7]]);
 end;
 
-function StringToUUID(const str: string; var g: TGUID): Boolean;
+function StringToUUID(const str: SOString; var g: TGUID): Boolean;
 begin
   Result := UuidFromString(PSOChar(str), @g);
 end;
