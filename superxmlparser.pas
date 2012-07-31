@@ -112,25 +112,59 @@ type
 
 {$IFDEF UNICODE}
   procedure XMLWrite(const node: ISuperObject; const method: TXMLWriteMethod);
+     procedure Escape(const str: string);
+    var
+      p1, p2: PChar;
+      procedure push(const data: string);
+      begin
+        if p2 > p1 then
+          method(Copy(p1, 0, p2-p1));
+        Inc(p2);
+        p1 := p2;
+        if data <> '' then
+          method(data);
+      end;
+    begin
+      p1 := PChar(str);
+      p2 := p1;
+
+      while True do
+        case p2^ of
+          '<': push('&lt;');
+          '>': push('&gt;');
+          '&': push('&amp;');
+          '"': push('&quot;');
+          #0 :
+            begin
+              push('');
+              Break;
+            end;
+        else
+          inc(p2);
+        end;
+    end;
   var
     o: ISuperObject;
     ent: TSuperAvlEntry;
-    str: string;
   begin
-    str := '<' + node.S[xmlname];
+    method('<' + node.S[xmlname]);
     if ObjectIsType(node[xmlattributes], stObject) then
       for ent in node[xmlattributes].AsObject do
-        str := str + ' ' + ent.Name + '="' + ent.Value.AsString + '"';
+      begin
+        method(' ' + ent.Name + '="');
+        Escape(ent.Value.AsString);
+        method('"');
+      end;
     if ObjectIsType(node[xmlchildren], stArray) then
     begin
-      method(str + '>');
+      method('>');
       for o in node[xmlchildren] do
         if ObjectIsType(o, stString) then
-          method(o.AsString) else
+          Escape(o.AsString) else
           XMLWrite(o, method);
       method('</' + node.S[xmlname] + '>');
     end else
-      method(str + '/>');
+      method('/>');
   end;
 {$ENDIF}
 
