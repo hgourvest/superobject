@@ -822,6 +822,7 @@ type
 function ObjectIsError(obj: TSuperObject): boolean;
 function ObjectIsType(const obj: ISuperObject; typ: TSuperType): boolean;
 function ObjectGetType(const obj: ISuperObject): TSuperType;
+function ObjectIsNull(const obj: ISuperObject): Boolean;
 
 function ObjectFindFirst(const obj: ISuperObject; var F: TSuperObjectIter): boolean;
 function ObjectFindNext(var F: TSuperObjectIter): boolean;
@@ -2128,6 +2129,11 @@ begin
   if obj <> nil then
     Result := obj.DataType else
     Result := stNull;
+end;
+
+function ObjectIsNull(const obj: ISuperObject): Boolean;
+begin
+  Result := ObjectIsType(obj, stNull);
 end;
 
 function ObjectFindFirst(const obj: ISuperObject; var F: TSuperObjectIter): boolean;
