@@ -85,15 +85,18 @@
 {.$DEFINE DEBUG} // track memory leack
 
 
-{$if defined(FPC) or defined(VER170) or defined(VER180) or defined(VER190) or defined(VER200) or defined(VER210)}
+{$if defined(FPC) or defined(VER170) or defined(VER180) or defined(VER190)
+  or defined(VER200) or defined(VER210) or defined(VER220) or defined(VER230)
+  or defined(VER240)  or defined(VER250) or defined(VER260)}
   {$DEFINE HAVE_INLINE}
 {$ifend}
 
-{$if defined(VER210) or defined(VER220) or defined(VER230)}
+{$if defined(VER210) or defined(VER220) or defined(VER230) or defined(VER240)
+  or defined(VER250) or defined(VER260)}
   {$define HAVE_RTTI}
 {$ifend}
 
-{$if defined(VER230)}
+{$if defined(VER230) or defined(VER240) or defined(VER250) or defined(VER260)}
   {$define NEED_FORMATSETTINGS}
 {$ifend}
 
@@ -1022,8 +1025,14 @@ begin
   fpGetTimeOfDay(@TimeVal, @TimeZone);
   Result := TimeZone.tz_minuteswest;
 end;
+
+function GetTimeBias(year: Word; dt: TDateTime): integer;
+begin
+  Result := GetCurrentTimeBias;
+end;
+
 {$ELSE}
-function GetTimeBias: integer;
+function GetCurrentTimeBias: integer;
 var
   tzi : TTimeZoneInformation;
 begin
@@ -1034,6 +1043,28 @@ begin
   else
     Result := 0;
   end;
+end;
+
+{$IFDEF FPC}
+function GetTimeZoneInformationForYear(wYear: USHORT; lpDynamicTimeZoneInformation: Pointer;
+  var lpTimeZoneInformation: TTimeZoneInformation): BOOL; stdcall;
+  external kernel32 name 'GetTimeZoneInformationForYear';
+{$ENDIF}
+
+function GetTimeBias(year: Word; dt: TDateTime): integer;
+var
+  tzi : TTimeZoneInformation;
+begin
+  if GetTimeZoneInformationForYear(year, nil, tzi) then
+  begin
+    tzi.StandardDate.wYear := year;
+    tzi.DaylightDate.wYear := year;
+    if (dt < SystemTimeToDateTime(tzi.StandardDate)) and
+       (dt >= SystemTimeToDateTime(tzi.DaylightDate)) then
+      Result := tzi.Bias + tzi.DaylightBias else
+      Result := tzi.Bias + tzi.StandardBias;
+  end else
+    Result := GetCurrentTimeBias;
 end;
 {$ENDIF}
 
@@ -1311,9 +1342,11 @@ function SystemTimeToTzSpecificLocalTime(
 function JavaToDelphiDateTime(const dt: int64): TDateTime;
 var
   t: TSystemTime;
+  tzi: TTimeZoneInformation;
 begin
   DateTimeToSystemTime(25569 + (dt / 86400000), t);
-  SystemTimeToTzSpecificLocalTime(nil, @t, @t);
+  GetTimeZoneInformationForYear(t.wYear, nil, tzi);
+  SystemTimeToTzSpecificLocalTime(@tzi, @t, @t);
   Result := SystemTimeToDateTime(t);
 end;
 
@@ -1933,7 +1966,7 @@ begin
     then goto error;
 
   if not havetz then
-    st.bias := GetTimeBias;
+    st.bias := GetCurrentTimeBias;
 
   ms := st.ms + st.second * 1000 + (st.minute + st.bias) * 60000 + st.hour * 3600000;
   if havedate then
@@ -1977,13 +2010,13 @@ var
 begin
   DecodeDate(dt, year, month, day);
   DecodeTime(dt, hour, min, sec, msec);
-  bias := GetTimeBias;
+  bias := GetTimeBias(year, dt);
   tzh := Abs(bias) div 60;
   tzm := Abs(bias) - tzh * 60;
   if Bias > 0 then
     sign := '-' else
     sign := '+';
-  Result := Format('%.4d-%.2d-%.2dT%.2d:%.2d:%.2d,%d%s%.2d:%.2d',
+  Result := Format('%.4d-%.2d-%.2dT%.2d:%.2d:%.2d.%d%s%.2d:%.2d',
     [year, month, day, hour, min, sec, msec, sign, tzh, tzm]);
 end;
 
