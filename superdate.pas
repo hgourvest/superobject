@@ -35,19 +35,32 @@ var
   ChangeYear: Word;
   LocalTimeZone: string;
 const
-  TZ_KEY = '\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones\';
+  TZ_XP_KEY  = '\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones\'; { XP (in HKCU) }
+  TZ_KEY     = '\SYSTEM\CurrentControlSet\Control\TimeZoneInformation'; { Vista+ (in HKLM) }
+  TZ_KEYNAME = 'TimeZoneKeyName';
 begin
   FillChar(TimeZoneInformation, SizeOf(TimeZoneInformation), 0);
   with TRegistry.Create do
   try
     RootKey := HKEY_LOCAL_MACHINE;
 
-    if OpenKeyReadOnly('\SYSTEM\CurrentControlSet\Control\TimeZoneInformation') then
-      LocalTimeZone := Trim(ReadString('TimeZoneKeyName'))
+    if OpenKeyReadOnly(TZ_KEY) and ValueExists(TZ_KEYNAME) then
+      LocalTimeZone := Trim(ReadString(TZ_KEYNAME))
     else
     begin
-      Result := False;
-      Exit;
+      CloseKey;
+      RootKey := HKEY_CURRENT_USER;
+      if OpenKeyReadOnly(TZ_XP_KEY) and ValueExists(TZ_KEYNAME) then
+      begin
+        LocalTimeZone := Trim(ReadString(TZ_KEYNAME));
+        CloseKey;
+        RootKey := HKEY_LOCAL_MACHINE;
+      end
+      else
+      begin
+        Result := False;
+        Exit;
+      end;
     end;
 
     if KeyExists(TZ_KEY + LocalTimeZone) then
