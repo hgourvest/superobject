@@ -2701,7 +2701,8 @@ redo_char:
                      TokRec^.current := TSuperObject.Create(dt);
                      TokRec^.parent.AsObject.PutO(tok.pb.Fbuf, TokRec^.current);
                    end;
-                   TokRec^.current := TokRec^.parent.AsObject.GetO(tok.pb.Fbuf);
+                   if not (foDelete in options) then
+                     TokRec^.current := TokRec^.parent.AsObject.GetO(tok.pb.Fbuf);
                    TokRec^.state := tsFinish;
                    goto redo_char;
                  end;
