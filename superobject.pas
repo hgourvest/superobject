@@ -6389,11 +6389,11 @@ function TSuperRttiContext.ToJson(var value: TValue; const index: ISuperObject):
   begin
     if TValueData(Value).FAsObject <> nil then
     begin
-      o := index[IntToStr(Integer(Value.AsObject))];
+      o := index[IntToStr(NativeInt(Value.AsObject))];
       if o = nil then
       begin
         Result := TSuperObject.Create(stObject);
-        index[IntToStr(Integer(Value.AsObject))] := Result;
+        index[IntToStr(NativeInt(Value.AsObject))] := Result;
         for f in Context.GetType(Value.AsObject.ClassType).GetFields do
           if f.FieldType <> nil then
           begin
