@@ -34,9 +34,10 @@ var
   tzi: TRegistryTZI;
   ChangeYear: Word;
   LocalTimeZone: string;
+  KeyName: string;
 const
-  TZ_XP_KEY  = '\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones\'; { XP (in HKCU) }
-  TZ_KEY     = '\SYSTEM\CurrentControlSet\Control\TimeZoneInformation'; { Vista+ (in HKLM) }
+  TZ_TZI_KEY = '\SYSTEM\CurrentControlSet\Control\TimeZoneInformation'; { Vista and + }
+  TZ_KEY     = '\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones\';
   TZ_KEYNAME = 'TimeZoneKeyName';
 begin
   FillChar(TimeZoneInformation, SizeOf(TimeZoneInformation), 0);
@@ -44,13 +45,14 @@ begin
   try
     RootKey := HKEY_LOCAL_MACHINE;
 
-    if OpenKeyReadOnly(TZ_KEY) and ValueExists(TZ_KEYNAME) then
+    if OpenKeyReadOnly(TZ_TZI_KEY) and ValueExists(TZ_KEYNAME) then
       LocalTimeZone := Trim(ReadString(TZ_KEYNAME))
     else
     begin
+      { Windows XP }
       CloseKey;
       RootKey := HKEY_CURRENT_USER;
-      if OpenKeyReadOnly(TZ_XP_KEY) and ValueExists(TZ_KEYNAME) then
+      if OpenKeyReadOnly(TZ_KEY) and ValueExists(TZ_KEYNAME) then
       begin
         LocalTimeZone := Trim(ReadString(TZ_KEYNAME));
         CloseKey;
@@ -64,42 +66,45 @@ begin
     end;
 
     if KeyExists(TZ_KEY + LocalTimeZone) then
-    begin
-      ChangeYear := 0;
-      if OpenKeyReadOnly(TZ_KEY + LocalTimeZone + '\Dynamic DST') then
-      try
-        ChangeYear := Year;
-        if Year < ReadInteger('FirstEntry') then
-          ChangeYear := ReadInteger('FirstEntry')
-        else if Year > ReadInteger('LastEntry') then
-          ChangeYear := ReadInteger('LastEntry');
-
-        while (not ValueExists(IntToStr(ChangeYear))) and (ChangeYear > 0) do
-          Dec(ChangeYear);
-
-        if ChangeYear > 0 then
-          ReadBinaryData(IntToStr(ChangeYear), tzi, SizeOf(TRegistryTZI));
-      finally
-        CloseKey;
-      end;
-
-      if (ChangeYear = 0) and OpenKeyReadOnly(TZ_KEY + LocalTimeZone) then
-      try
-        ReadBinaryData('TZI', tzi, SizeOf(TRegistryTZI));
-      finally
-        CloseKey;
-      end;
-
-      TimeZoneInformation.Bias         := tzi.Bias;
-      TimeZoneInformation.StandardDate := tzi.StandardChangeTime;
-      TimeZoneInformation.StandardBias := tzi.StandardBias;
-      TimeZoneInformation.DaylightDate := tzi.DaylightChangeTime;
-      TimeZoneInformation.DaylightBias := tzi.DaylightBias;
-
-      Result := True;
-    end
+      KeyName := TZ_KEY + LocalTimeZone
     else
+    begin
       Result := False;
+      Exit;
+    end;
+
+    ChangeYear := 0;
+    if OpenKeyReadOnly(KeyName + '\Dynamic DST') then
+    try
+      ChangeYear := Year;
+      if Year < ReadInteger('FirstEntry') then
+        ChangeYear := ReadInteger('FirstEntry')
+      else if Year > ReadInteger('LastEntry') then
+        ChangeYear := ReadInteger('LastEntry');
+
+      while (not ValueExists(IntToStr(ChangeYear))) and (ChangeYear > 0) do
+        Dec(ChangeYear);
+
+      if ChangeYear > 0 then
+        ReadBinaryData(IntToStr(ChangeYear), tzi, SizeOf(TRegistryTZI));
+    finally
+      CloseKey;
+    end;
+
+    if (ChangeYear = 0) and OpenKeyReadOnly(KeyName) then
+    try
+      ReadBinaryData('TZI', tzi, SizeOf(TRegistryTZI));
+    finally
+      CloseKey;
+    end;
+
+    TimeZoneInformation.Bias         := tzi.Bias;
+    TimeZoneInformation.StandardDate := tzi.StandardChangeTime;
+    TimeZoneInformation.StandardBias := tzi.StandardBias;
+    TimeZoneInformation.DaylightDate := tzi.DaylightChangeTime;
+    TimeZoneInformation.DaylightBias := tzi.DaylightBias;
+
+    Result := True;
   finally
     Free;
   end;
