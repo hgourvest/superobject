@@ -921,25 +921,23 @@ begin
             begin
               bias := v * 60;
               case p^ of
-                ':': if sep in [yes, perhaps] then
+                ':': //if sep in [yes, perhaps] then
                      begin
                        state := stGMTM;
                        inc(p);
                        pos := 0;
                        v := 0;
                        sep := yes;
-                     end else
-                       goto error;
+                     end; // else goto error;
                 '0'..'9':
-                     if sep in [no, perhaps] then
+                     //if sep in [no, perhaps] then
                      begin
                        state := stGMTM;
                        pos := 1;
                        sep := no;
                        inc(p);
                        v := ord(p^) - ord('0');
-                     end else
-                       goto error;
+                     end; // else goto error;
                 #0: state := stGMTend;
               else
                 goto error;

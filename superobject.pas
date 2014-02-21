@@ -3407,6 +3407,8 @@ begin
         for j := 0 to arr.Length - 1 do
           Add(arr.GetO(j).Clone);
       end;
+    stNull:
+      Result := TSuperObject.Create(stNull);
   else
     Result := nil;
   end;
