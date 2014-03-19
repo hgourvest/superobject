@@ -5,13 +5,15 @@ unit superdate;
 {$ENDIF}
 
 interface
+
 uses
-  supertypes;
+  Windows, supertypes;
 
 function JavaToDelphiDateTime(const dt: Int64): TDateTime;
 function DelphiToJavaDateTime(const dt: TDateTime): Int64;
 
 function DelphiDateTimeToISO8601Date(dt: TDateTime): SOString;
+function DelphiDateTimeToISO8601DateWithTimeZone(dt: TDateTime; tzi: PTimeZoneInformation): SOString;
 
 function ISO8601DateToJavaDateTime(const str: SOString; var ms: Int64): Boolean;
 function ISO8601DateToDelphiDateTime(const str: SOString; var dt: TDateTime): Boolean;
@@ -19,7 +21,7 @@ function ISO8601DateToDelphiDateTime(const str: SOString; var dt: TDateTime): Bo
 implementation
 
 uses
-  Windows, Registry, SysUtils, DateUtils, Math;
+  Registry, SysUtils, DateUtils, Math;
 
 function GetTimeZoneInformationForYear(Year: Word; Dummy: Pointer; var TimeZoneInformation: TTimeZoneInformation): Boolean;
 type
@@ -355,32 +357,42 @@ begin
 end;
 
 function DelphiDateTimeToISO8601Date(dt: TDateTime): SOString;
+begin
+  Result := DelphiDateTimeToISO8601DateWithTimeZone(dt, nil);
+end;
+
+function DelphiDateTimeToISO8601DateWithTimeZone(dt: TDateTime; tzi: PTimeZoneInformation): SOString;
 const
-  Signs: array[TValueSign] of String = ('', '', '+');
+  ISO_Fmt = '%.4d-%.2d-%.2dT%.2d:%.2d:%.2d.%d';
+  TZ_Fmt  = '%s%.2d:%.2d';
 var
   local, utc: TSystemTime;
-  tzi: TTimeZoneInformation;
+  ttzi: TTimeZoneInformation;
   bias: TDateTime;
   h, m, d: Word;
+  iso: string;
 begin
   DateTimeToSystemTime(dt, local);
-  if GetTimeZoneInformationForYear(local.wYear, nil, tzi) and
-    TzSpecificLocalTimeToSystemTime(@tzi, @local, @utc) then
+  iso := Format(ISO_Fmt, [
+    local.wYear, local.wMonth, local.wDay,
+    local.wHour, local.wMinute, local.wSecond, local.wMilliseconds
+  ]);
+  if (tzi = nil) and GetTimeZoneInformationForYear(local.wYear, nil, ttzi) then
+    tzi := @ttzi;
+  if (tzi <> nil) and TzSpecificLocalTimeToSystemTime(tzi, @local, @utc) then
   begin
-    Bias := SystemTimeToDateTime(local) - SystemTimeToDateTime(utc);
-    DecodeTime(Bias, h, m, d, d);
-    Result := Format('%.4d-%.2d-%.2dT%.2d:%.2d:%.2d.%d%s%.2d:%.2d', [
-      local.wYear, local.wMonth, local.wDay,
-      local.wHour, local.wMinute, local.wSecond, local.wMilliseconds,
-      Signs[Sign(bias)], h, m
-    ]);
+    bias := SystemTimeToDateTime(local) - SystemTimeToDateTime(utc);
+    DecodeTime(bias, h, m, d, d);
+    case Sign(bias) of
+    -1: Result := iso + Format(TZ_Fmt, [ '-', h, m ]);
+     0: Result := iso + 'Z';
+    +1: Result := iso + Format(TZ_Fmt, [ '+', h, m ]);
+    end;
   end
   else
-    Result := Format('%.4d-%.2d-%.2dT%.2d:%.2d:%.2d.%d', [
-      local.wYear, local.wMonth, local.wDay,
-      local.wHour, local.wMinute, local.wSecond, local.wMilliseconds
-    ]);
+    Result := iso;
 end;
+
 
 { iso -> java }
 
