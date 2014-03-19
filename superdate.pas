@@ -372,7 +372,7 @@ begin
     Result := Format('%.4d-%.2d-%.2dT%.2d:%.2d:%.2d.%d%s%.2d:%.2d', [
       local.wYear, local.wMonth, local.wDay,
       local.wHour, local.wMinute, local.wSecond, local.wMilliseconds,
-      Signs[Sign(h)], h, m
+      Signs[Sign(bias)], h, m
     ]);
   end
   else
