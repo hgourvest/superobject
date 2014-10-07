@@ -1139,11 +1139,14 @@ begin
     i := F.Ite.GetIter;
     if i <> nil then
     begin
-      f.key := i.Name;
-      f.val := i.Value;
-      Result := true;
+      F.key := i.Name;
+      F.val := i.Value;
+      Result := True;
     end else
+    begin
+      FreeAndNil(F.Ite);
       Result := False;
+    end;
   end else
     Result := False;
 end;
@@ -1152,20 +1155,26 @@ function ObjectFindNext(var F: TSuperObjectIter): boolean;
 var
   i: TSuperAvlEntry;
 begin
-  F.Ite.Next;
-  i := F.Ite.GetIter;
-  if i <> nil then
+  if Assigned(F.Ite) then
   begin
-    f.key := i.FName;
-    f.val := i.Value;
-    Result := true;
-  end else
+    F.Ite.Next;
+    i := F.Ite.GetIter;
+    if i <> nil then
+    begin
+      F.key := i.FName;
+      F.val := i.Value;
+      Result := True;
+    end else
+      Result := False;
+  end
+  else
     Result := False;
 end;
 
 procedure ObjectFindClose(var F: TSuperObjectIter);
 begin
-  F.Ite.Free;
+  if Assigned(F.Ite) then
+    F.Ite.Free;
   F.val := nil;
 end;
 
