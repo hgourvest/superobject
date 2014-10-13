@@ -1174,7 +1174,7 @@ end;
 procedure ObjectFindClose(var F: TSuperObjectIter);
 begin
   if Assigned(F.Ite) then
-    F.Ite.Free;
+    FreeAndNil(F.Ite);
   F.val := nil;
 end;
 
