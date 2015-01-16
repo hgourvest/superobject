@@ -55,7 +55,7 @@ var
   req: IXMLHttpRequest;
   o: ISuperObject;
 begin
-  req := {$IFDEF VER210}CoXMLHTTP{$ELSE}CoXMLHTTPRequest{$ENDIF}.Create;
+  req := CoXMLHTTP.Create;
   req.open('GET', 'http://www.google.com/uds/GwebSearch?callback=response&rsz=large&v=1.0&q='+ UTF8Encode(GSearch.Text), false, EmptyParam, EmptyParam);
   req.send(EmptyParam);
   o := so;
