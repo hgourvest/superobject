@@ -90,6 +90,29 @@ function _TzSpecificLocalTimeToSystemTime(
 
 (* EXtended version - DST Aware *)
 
+{$IF RTLVersion <= 21.00} // Delphi 2010 does not have these definitions.
+type
+  PDynamicTimeZoneInformation = ^TDynamicTimeZoneInformation;
+  _TIME_DYNAMIC_ZONE_INFORMATION = record
+    Bias: Longint;
+    StandardName: array[0..31] of WCHAR;
+    StandardDate: TSystemTime;
+    StandardBias: Longint;
+    DaylightName: array[0..31] of WCHAR;
+    DaylightDate: TSystemTime;
+    DaylightBias: Longint;
+    TimeZoneKeyName: array[0..127] of WCHAR;
+    DynamicDaylightTimeDisabled: Boolean;
+  end;
+  {$EXTERNALSYM _TIME_DYNAMIC_ZONE_INFORMATION}
+  TDynamicTimeZoneInformation = _TIME_DYNAMIC_ZONE_INFORMATION;
+  TIME_DYNAMIC_ZONE_INFORMATION = _TIME_DYNAMIC_ZONE_INFORMATION;
+  {$EXTERNALSYM _TIME_DYNAMIC_ZONE_INFORMATION}
+
+function GetDynamicTimeZoneInformation(var pTimeZoneInformation: TDynamicTimeZoneInformation): DWORD;
+  stdcall; external kernel32 name 'GetDynamicTimeZoneInformation' delayed;
+{$IFEND}
+
 { Windows 7+ }
 function _TzSpecificLocalTimeToSystemTimeEx(
   const lpTimeZoneInformation: PDynamicTimeZoneInformation;
@@ -101,7 +124,7 @@ function _SystemTimeToTzSpecificLocalTimeEx(
    const lpUniversalTime: PSystemTime; var lpLocalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'SystemTimeToTzSpecificLocalTimeEx' delayed;
 
 { Convert Local <=> UTC for specific time-zones using the Windows API only. NOT Guaranteed to work }
-   
+
 function _ConvertLocalDateTimeToUTC(const TimeZoneName: SOString;
   const Local: TDateTime; var UTC: TDateTime): Boolean;
 
