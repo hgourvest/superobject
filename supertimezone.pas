@@ -2,17 +2,36 @@ unit supertimezone;
 
 interface
 
+{$if defined(VER210) or defined(VER220)}
+  {$define VER210ORGREATER}
+{$ifend}
+
+{$if defined(VER230) or defined(VER240)  or defined(VER250) or
+     defined(VER260) or defined(VER270)  or defined(VER280) or
+     defined(VER290)}
+  {$define VER210ORGREATER}
+  {$define VER230ORGREATER}
+{$ifend}
+
+{$if defined(VER210ORGREATER)}
+  {$define HAVE_GENERICS}
+  {$define HAVE_CLASS_CONSTRUCTOR}
+  {$define HAVE_DELAYED}
+{$ifend}
+
 uses
-  Windows, Registry, SysUtils, Math, Generics.Collections,
+  Windows, Registry, SysUtils, Math,
+  {$IFDEF HAVE_GENERICS}
+  Generics.Collections,
+  {$ENDIF}
   supertypes;
 
+const
+  TZ_TZI_KEY = '\SYSTEM\CurrentControlSet\Control\TimeZoneInformation'; { Vista and + }
+  TZ_KEY     = '\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones\';
+  TZ_KEYNAME = 'TimeZoneKeyName';
 type
   TSuperTimeZone = class
-  private
-    const
-      TZ_TZI_KEY = '\SYSTEM\CurrentControlSet\Control\TimeZoneInformation'; { Vista and + }
-      TZ_KEY     = '\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones\';
-      TZ_KEYNAME = 'TimeZoneKeyName';
   private
     FName: SOString;
     function GetName: SOString;
@@ -35,12 +54,14 @@ type
     function DayLightCompareDate(const date: PSystemTime;
       const compareDate: PSystemTime): Integer;
   private
+    {$IFDEF HAVE_CLASS_CONSTRUCTOR}
     class constructor Init;
     class destructor Finish;
     class var FCacheCS: TRTLCriticalSection;
     class var FCache: TObjectDictionary<string, TSuperTimeZone>;
     class function GetSuperTimeZoneInstance(const Name: string): TSuperTimeZone; static;
     class function GetLocalSuperTimeZoneInstance: TSuperTimeZone; static;
+    {$ENDIF}
   public
     constructor Create(const TimeZoneName: SOString = '');
 
@@ -69,9 +90,15 @@ type
     property Name: SOString read GetName;
 
     { Builder }
+    {$IFDEF HAVE_CLASS_CONSTRUCTOR}
     class property Local: TSuperTimeZone read GetLocalSuperTimeZoneInstance;
     class property Zone[const TimeZoneName: string]: TSuperTimeZone read GetSuperTimeZoneInstance;
+    {$ENDIF}
   end;
+
+{$IFNDEF HAVE_CLASS_CONSTRUCTOR}
+function LocalSuperTimeZone: TSuperTimeZone;
+{$ENDIF}
 
 {$IFDEF MSWINDOWS}
   {$WARN SYMBOL_PLATFORM OFF}
@@ -81,12 +108,12 @@ type
 { Windows 2000+ }
 function _SystemTimeToTzSpecificLocalTime(
   lpTimeZoneInformation: PTimeZoneInformation;
-  var lpUniversalTime, lpLocalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'SystemTimeToTzSpecificLocalTime' delayed;
+  var lpUniversalTime, lpLocalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'SystemTimeToTzSpecificLocalTime' {$IFDEF HAVE_DELAYED}delayed;{$ENDIF}
 
 { Windows XP+ }
 function _TzSpecificLocalTimeToSystemTime(
   lpTimeZoneInformation: PTimeZoneInformation;
-  var lpLocalTime, lpUniversalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'TzSpecificLocalTimeToSystemTime' delayed;
+  var lpLocalTime, lpUniversalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'TzSpecificLocalTimeToSystemTime' {$IFDEF HAVE_DELAYED}delayed;{$ENDIF}
 
 (* EXtended version - DST Aware *)
 
@@ -110,18 +137,18 @@ type
   {$EXTERNALSYM _TIME_DYNAMIC_ZONE_INFORMATION}
 
 function GetDynamicTimeZoneInformation(var pTimeZoneInformation: TDynamicTimeZoneInformation): DWORD;
-  stdcall; external kernel32 name 'GetDynamicTimeZoneInformation' delayed;
+  stdcall; external kernel32 name 'GetDynamicTimeZoneInformation' {$IFDEF HAVE_DELAYED}delayed;{$ENDIF}
 {$IFEND}
 
 { Windows 7+ }
 function _TzSpecificLocalTimeToSystemTimeEx(
   const lpTimeZoneInformation: PDynamicTimeZoneInformation;
-  const lpLocalTime: PSystemTime; var lpUniversalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'TzSpecificLocalTimeToSystemTimeEx' delayed;
+  const lpLocalTime: PSystemTime; var lpUniversalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'TzSpecificLocalTimeToSystemTimeEx' {$IFDEF HAVE_DELAYED}delayed;{$ENDIF}
 
 { Windows 7+ }
 function _SystemTimeToTzSpecificLocalTimeEx(
   const lpTimeZoneInformation: PDynamicTimeZoneInformation;
-   const lpUniversalTime: PSystemTime; var lpLocalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'SystemTimeToTzSpecificLocalTimeEx' delayed;
+   const lpUniversalTime: PSystemTime; var lpLocalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'SystemTimeToTzSpecificLocalTimeEx' {$IFDEF HAVE_DELAYED}delayed;{$ENDIF}
 
 { Convert Local <=> UTC for specific time-zones using the Windows API only. NOT Guaranteed to work }
 
@@ -135,6 +162,17 @@ function _ConvertUTCDateTimeToLocal(const TimeZoneName: SOString;
 {$ENDIF}
 
 implementation
+
+{$IFNDEF HAVE_CLASS_CONSTRUCTOR}
+var
+  _LocalSuperTimeZone: TSuperTimeZone = nil;
+function LocalSuperTimeZone: TSuperTimeZone;
+begin
+  if not Assigned(_LocalSuperTimeZone) then
+    _LocalSuperTimeZone := TSuperTimeZone.Create;
+  Result := _LocalSuperTimeZone;
+end;
+{$ENDIF}
 
 {$IFDEF MSWINDOWS}
 
@@ -211,6 +249,7 @@ end;
 
 { TSuperDate }
 
+{$IFDEF HAVE_CLASS_CONSTRUCTOR}
 class constructor TSuperTimeZone.Init;
 begin
   InitializeCriticalSection(FCacheCS);
@@ -242,6 +281,7 @@ class function TSuperTimeZone.GetLocalSuperTimeZoneInstance: TSuperTimeZone;
 begin
   Result := TSuperTimeZone.GetSuperTimeZoneInstance('');
 end;
+{$ENDIF}
 
 constructor TSuperTimeZone.Create(const TimeZoneName: SOString);
 begin

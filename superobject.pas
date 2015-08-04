@@ -1202,7 +1202,7 @@ type
       1: (bytes: array[0..15] of Byte);
       2: (words: array[0..7] of Word);
       3: (ints: array[0..3] of Cardinal);
-      4: (i64s: array[0..1] of UInt64);
+      4: (i64s: array[0..1] of {$if declared(UInt64)}UInt64{$else}Int64Rec{$ifend});
   end;
 
   function ishex(const c: SOChar): Boolean; {$IFDEF HAVE_INLINE} inline;{$ENDIF}
