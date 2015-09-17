@@ -1881,6 +1881,22 @@ type
             inc(pos);
             start_offset := pos;
           end;
+        #13:
+          begin
+            if(pos - start_offset > 0) then
+              Append(str + start_offset, pos - start_offset);
+            Append(ESC_CR, 2);
+            inc(pos);
+            start_offset := pos;
+          end;
+        #10:
+          begin
+            if(pos - start_offset > 0) then
+              Append(str + start_offset, pos - start_offset);
+            Append(ESC_LF, 2);
+            inc(pos);
+            start_offset := pos;
+          end;
       else
         inc(pos);
       end;
