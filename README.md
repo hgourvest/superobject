@@ -1,4 +1,4 @@
-# SuperObject
+﻿ # SuperObject
 
 ## What is JSON ?
 
