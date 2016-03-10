@@ -759,6 +759,9 @@ type
   TSerialFromJson = function(ctx: TSuperRttiContext; const obj: ISuperObject; var Value: TValue): Boolean;
   TSerialToJson = function(ctx: TSuperRttiContext; var value: TValue; const index: ISuperObject): ISuperObject;
 
+  TSuperIgnoreAttribute = class(TCustomAttribute)
+  end;
+
   TSuperAttribute = class(TCustomAttribute)
   private
     FName: string;
@@ -767,14 +770,17 @@ type
     property Name: string read FName;
   end;
 
+  SOIgnore = class(TSuperIgnoreAttribute);
   SOName = class(TSuperAttribute);
   SODefault = class(TSuperAttribute);
 
 
   TSuperRttiContext = class
   private
+    class function isIgnoredField(r: TRttiField): boolean;
     class function GetFieldName(r: TRttiField): string;
     class function GetFieldDefault(r: TRttiField; const obj: ISuperObject): ISuperObject;
+
   public
     Context: TRttiContext;
     SerialFromJson: TDictionary<PTypeInfo, TSerialFromJson>;
@@ -5887,6 +5893,16 @@ begin
   Context.Free;
 end;
 
+class function TSuperRttiContext.isIgnoredField(r: TRttiField): boolean;
+var
+  o: TCustomAttribute;
+begin
+  for o in r.GetAttributes do
+    if o is SOIgnore then
+      Exit(true);
+  Result := false;
+end;
+
 class function TSuperRttiContext.GetFieldName(r: TRttiField): string;
 var
   o: TCustomAttribute;
@@ -6414,7 +6430,7 @@ function TSuperRttiContext.ToJson(var value: TValue; const index: ISuperObject):
         Result := TSuperObject.Create(stObject);
         index[IntToStr(NativeInt(Value.AsObject))] := Result;
         for f in Context.GetType(Value.AsObject.ClassType).GetFields do
-          if f.FieldType <> nil then
+          if (not isIgnoredField(f)) and (f.FieldType <> nil) then
           begin
             v := f.GetValue(Value.AsObject);
             Result.AsObject[GetFieldName(f)] := ToJson(v, index);
@@ -6442,6 +6458,7 @@ function TSuperRttiContext.ToJson(var value: TValue; const index: ISuperObject):
   begin
     Result := TSuperObject.Create(stObject);
     for f in Context.GetType(Value.TypeInfo).GetFields do
+    if (not isIgnoredField(f)) then
     begin
 {$IFDEF VER210}
       v := f.GetValue(IValueData(TValueData(Value).FHeapData).GetReferenceToRawData);
