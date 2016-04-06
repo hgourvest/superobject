@@ -84,13 +84,11 @@
 {.$DEFINE DEBUG} // track memory leack
 
 
-{$if defined(VER210) or defined(VER220)}
+{$IF CompilerVersion >= 21.0}
   {$define VER210ORGREATER}
 {$ifend}
 
-{$if defined(VER230) or defined(VER240)  or defined(VER250) or
-     defined(VER260) or defined(VER270)  or defined(VER280)}
-  {$define VER210ORGREATER}
+{$IF CompilerVersion >= 23.0}
   {$define VER230ORGREATER}
 {$ifend}
 
