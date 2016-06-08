@@ -1,4 +1,4 @@
-# SuperObject
+﻿ # SuperObject
 
 ## What is JSON ?
 
@@ -162,7 +162,7 @@ begin
     obj.AsArray[item]
 ```
 
-## RTTI & marshalling in Delphi 2010
+## RTTI & marshalling in Delphi 2010  
 
 ```pas
 type
