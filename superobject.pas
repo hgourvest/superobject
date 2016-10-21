@@ -1182,8 +1182,7 @@ end;
 
 procedure ObjectFindClose(var F: TSuperObjectIter);
 begin
-  if Assigned(F.Ite) then
-    FreeAndNil(F.Ite);
+  FreeAndNil(F.Ite);
   F.val := nil;
 end;
 
@@ -2247,7 +2246,7 @@ class function TSuperObject.ParseFile(const FileName: string; strict: Boolean;
 var
   stream: TFileStream;
 begin
-  stream := TFileStream.Create(FileName, fmOpenRead, fmShareDenyWrite);
+  stream := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite );
   try
     Result := ParseStream(stream, strict, partial, this, options, put, dt);
   finally
