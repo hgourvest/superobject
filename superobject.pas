@@ -770,6 +770,19 @@ type
     property Name: string read FName;
   end;
 
+  TClassElement = (ceField, ceProperty);
+  TClassElements = set of TClassElement;
+
+  TClassAttribute = class(TCustomAttribute)
+  strict private
+    FElements: TClassElements;
+  public
+    constructor Create(const Elements: TClassElements);
+
+    property Elements: TClassElements read FElements;
+  end;
+
+  SOElements = class(TClassAttribute);
   SOIgnore = class(TSuperIgnoreAttribute);
   SOName = class(TSuperAttribute);
   SODefault = class(TSuperAttribute);
@@ -777,9 +790,10 @@ type
 
   TSuperRttiContext = class
   private
-    class function isIgnoredField(r: TRttiField): boolean;
-    class function GetFieldName(r: TRttiField): string;
-    class function GetFieldDefault(r: TRttiField; const obj: ISuperObject): ISuperObject;
+    class function isExportable(const aType: TRttiType; const Element: TClassElement): boolean;
+    class function isIgnoredObject(r: TRttiObject): boolean;
+    class function GetObjectName(r: TRttiNamedObject): string;
+    class function GetObjectDefault(r: TRttiObject; const obj: ISuperObject): ISuperObject;
 
   public
     Context: TRttiContext;
@@ -5893,7 +5907,24 @@ begin
   Context.Free;
 end;
 
-class function TSuperRttiContext.isIgnoredField(r: TRttiField): boolean;
+constructor TClassAttribute.Create(const Elements: TClassElements);
+begin
+  inherited Create;
+  FElements:=Elements;
+end;
+
+class function TSuperRttiContext.isExportable(const aType: TRttiType; const Element: TClassElement): boolean;
+var
+  o: TCustomAttribute;
+begin
+  for o in aType.GetAttributes do
+    if o is SOElements then
+      Exit(element in SOElements(o).Elements);
+
+  Result := element=ceField;
+end;
+
+class function TSuperRttiContext.isIgnoredObject(r: TRttiObject): boolean;
 var
   o: TCustomAttribute;
 begin
@@ -5903,7 +5934,7 @@ begin
   Result := false;
 end;
 
-class function TSuperRttiContext.GetFieldName(r: TRttiField): string;
+class function TSuperRttiContext.getObjectName(r: TRttiNamedObject): string;
 var
   o: TCustomAttribute;
 begin
@@ -5913,7 +5944,7 @@ begin
   Result := r.Name;
 end;
 
-class function TSuperRttiContext.GetFieldDefault(r: TRttiField; const obj: ISuperObject): ISuperObject;
+class function TSuperRttiContext.GetObjectDefault(r: TRttiObject; const obj: ISuperObject): ISuperObject;
 var
   o: TCustomAttribute;
 begin
@@ -6103,11 +6134,12 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
           Result := True;
           if Value.Kind <> tkClass then
             Value := GetTypeData(TypeInfo).ClassType.Create;
+
           for f in Context.GetType(Value.AsObject.ClassType).GetFields do
             if f.FieldType <> nil then
             begin
               v := TValue.Empty;
-              Result := FromJson(f.FieldType.Handle, GetFieldDefault(f, obj.AsObject[GetFieldName(f)]), v);
+              Result := FromJson(f.FieldType.Handle, getObjectDefault(f, obj.AsObject[GetObjectName(f)]), v);
               if Result then
                 f.SetValue(Value.AsObject, v) else
                 Exit;
@@ -6142,7 +6174,7 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
 {$ELSE}
         p := TValueData(Value).FValueData.GetReferenceToRawData;
 {$ENDIF}
-        Result := FromJson(f.FieldType.Handle, GetFieldDefault(f, obj.AsObject[GetFieldName(f)]), v);
+        Result := FromJson(f.FieldType.Handle, GetObjectDefault(f, obj.AsObject[GetObjectName(f)]), v);
         if Result then
           f.SetValue(p, v) else
           begin
@@ -6419,6 +6451,7 @@ function TSuperRttiContext.ToJson(var value: TValue; const index: ISuperObject):
   procedure ToClass;
   var
     o: ISuperObject;
+    p: TRttiProperty;
     f: TRttiField;
     v: TValue;
   begin
@@ -6429,12 +6462,22 @@ function TSuperRttiContext.ToJson(var value: TValue; const index: ISuperObject):
       begin
         Result := TSuperObject.Create(stObject);
         index[IntToStr(NativeInt(Value.AsObject))] := Result;
-        for f in Context.GetType(Value.AsObject.ClassType).GetFields do
-          if (not isIgnoredField(f)) and (f.FieldType <> nil) then
-          begin
-            v := f.GetValue(Value.AsObject);
-            Result.AsObject[GetFieldName(f)] := ToJson(v, index);
-          end
+
+        if isExportable(Context.GetType(Value.AsObject.ClassType), ceField) then
+          for f in Context.GetType(Value.AsObject.ClassType).GetFields do
+            if (not isIgnoredObject(f)) and (f.FieldType <> nil) then
+            begin
+              v := f.GetValue(Value.AsObject);
+              Result.AsObject[getObjectName(f)] := ToJson(v, index);
+            end;
+
+        if isExportable(Context.GetType(Value.AsObject.ClassType), ceProperty) then
+          for p in Context.GetType(Value.AsObject.ClassType).GetProperties do
+            if (not isIgnoredObject(p)) and (p.PropertyType <> nil) then
+            begin
+              v := p.GetValue(Value.AsObject);
+              Result.AsObject[getObjectName(p)] := ToJson(v, index);
+            end
       end else
         Result := o;
     end else
@@ -6458,14 +6501,14 @@ function TSuperRttiContext.ToJson(var value: TValue; const index: ISuperObject):
   begin
     Result := TSuperObject.Create(stObject);
     for f in Context.GetType(Value.TypeInfo).GetFields do
-    if (not isIgnoredField(f)) then
+    if (not isIgnoredObject(f)) then
     begin
 {$IFDEF VER210}
       v := f.GetValue(IValueData(TValueData(Value).FHeapData).GetReferenceToRawData);
 {$ELSE}
       v := f.GetValue(TValueData(Value).FValueData.GetReferenceToRawData);
 {$ENDIF}
-      Result.AsObject[GetFieldName(f)] := ToJson(v, index);
+      Result.AsObject[getObjectName(f)] := ToJson(v, index);
     end;
   end;
 
