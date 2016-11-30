@@ -825,9 +825,9 @@ function StringToUUID(const str: SOString; var g: TGUID): Boolean;
 type
   TSuperInvokeResult = (
     irSuccess,
-    irMethothodError,  // method don't exist
-    irParamError,     // invalid parametters
-    irError            // other error
+    irMethodError,  // method don't exist
+    irParamError,   // invalid parametters
+    irError         // other error
   );
 
 function TrySOInvoke(var ctx: TSuperRttiContext; const obj: TValue; const method: string; const params: ISuperObject; var Return: ISuperObject): TSuperInvokeResult; overload;
@@ -1618,7 +1618,7 @@ begin
       begin
         t := TRttiInstanceType(ctx.Context.GetType(obj.AsObject.ClassType));
         m := t.GetMethod(method);
-        if m = nil then Exit(irMethothodError);
+        if m = nil then Exit(irMethodError);
         ps := m.GetParameters;
         SetLength(a, Length(ps));
         if not GetParams then Exit(irParamError);
@@ -1638,7 +1638,7 @@ begin
       begin
         t := TRttiInstanceType(ctx.Context.GetType(obj.AsClass));
         m := t.GetMethod(method);
-        if m = nil then Exit(irMethothodError);
+        if m = nil then Exit(irMethodError);
         ps := m.GetParameters;
         SetLength(a, Length(ps));
 
