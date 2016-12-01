@@ -559,7 +559,7 @@ type
 {$IFDEF SUPER_METHOD}
     function AsMethod: TSuperMethod;
 {$ENDIF}
-    function AsJSon(indent: boolean = false; escape: boolean = true): SOString;
+    function AsJson(indent: boolean = false; escape: boolean = true): SOString;
 
     procedure Clear(all: boolean = false);
     procedure Pack(all: boolean = false);
@@ -2158,13 +2158,13 @@ begin
     Result := nil;
 end;
 
-function TSuperObject.AsJSon(indent, escape: boolean): SOString;
+function TSuperObject.AsJson(indent, escape: boolean): SOString;
 var
   pb: TSuperWriterString;
 begin
   pb := TSuperWriterString.Create;
   try
-    if(Write(pb, indent, escape, 0) < 0) then
+    if Write(pb, indent, escape, 0) < 0 then
     begin
       Result := '';
       Exit;
