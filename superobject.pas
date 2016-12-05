@@ -3635,7 +3635,7 @@ begin
   try
     Result := SaveTo(stream, indent, escape);
   finally
-    stream.Free;
+     stream.Free;
   end;
 end;
 
@@ -5918,8 +5918,10 @@ var
   o: TCustomAttribute;
 begin
   for o in aType.GetAttributes do
-    if o is SOElements then
+  begin
+    if o is TClassAttribute then
       Exit(element in SOElements(o).Elements);
+  end;
 
   Result := element=ceField;
 end;
@@ -6126,6 +6128,7 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
   procedure FromClass;
   var
     f: TRttiField;
+    p: TRttiProperty;
     v: TValue;
   begin
     case ObjectGetType(obj) of
@@ -6139,10 +6142,18 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
             if f.FieldType <> nil then
             begin
               v := TValue.Empty;
-              Result := FromJson(f.FieldType.Handle, getObjectDefault(f, obj.AsObject[GetObjectName(f)]), v);
-              if Result then
-                f.SetValue(Value.AsObject, v) else
-                Exit;
+              if f.FieldType.ClassType<>TRttiMethodType then
+                if FromJson(f.FieldType.Handle, getObjectDefault(f, obj.AsObject[GetObjectName(f)]), v) then
+                  f.SetValue(Value.AsObject, v);
+            end;
+
+          for p in Context.GetType(Value.AsObject.ClassType).GetProperties do
+            if p.PropertyType <> nil then
+            begin
+              v := TValue.Empty;
+              if p.PropertyType.ClassType<>TRttiMethodType then
+                if FromJson(p.PropertyType.Handle, getObjectDefault(p, obj.AsObject[GetObjectName(p)]), v) then
+                  p.SetValue(Value.AsObject, v);
             end;
         end;
       stNull:
