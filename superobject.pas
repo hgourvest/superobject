@@ -777,7 +777,8 @@ type
   strict private
     FElements: TClassElements;
   public
-    constructor Create(const Elements: TClassElements);
+    constructor Create(const Value: cardinal); overload;
+    constructor Create(const Elements: TClassElements); overload;
 
     property Elements: TClassElements read FElements;
   end;
@@ -820,6 +821,10 @@ type
     val: ISuperObject;
     Ite: TSuperAvlIterator;
   end;
+
+  const cst_ce_field = 1;
+  const cst_ce_property = 2;
+
 
 function ObjectIsError(obj: TSuperObject): boolean;
 function ObjectIsType(const obj: ISuperObject; typ: TSuperType): boolean;
@@ -5905,6 +5910,16 @@ begin
   SerialFromJson.Free;
   SerialToJson.Free;
   Context.Free;
+end;
+
+constructor TClassAttribute.Create(const Value: Cardinal);
+begin
+  if(value and cst_ce_property=cst_ce_property) then
+    Create([ceProperty])
+  else
+  begin
+    Create([]);
+  end;
 end;
 
 constructor TClassAttribute.Create(const Elements: TClassElements);
