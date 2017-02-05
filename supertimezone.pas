@@ -13,8 +13,18 @@ type
       TZ_TZI_KEY = '\SYSTEM\CurrentControlSet\Control\TimeZoneInformation'; { Vista and + }
       TZ_KEY     = '\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones\';
       TZ_KEYNAME = 'TimeZoneKeyName';
+  private type
+    TExpirable<T> = record
+      Timestamp: TDateTime;
+      Data: T;
+      function IsValid: Boolean;
+      class function Box(Data: T): TExpirable<T>; static;
+    end;
   private
     FName: SOString;
+    FDaylightDisabled: TExpirable<Boolean>;
+    FCacheTZI: TDictionary<Word, TExpirable<TTimeZoneInformation>>;
+
     function GetName: SOString;
 
     { Windows Internals }
@@ -43,6 +53,7 @@ type
     class function GetLocalSuperTimeZoneInstance: TSuperTimeZone; static;
   public
     constructor Create(const TimeZoneName: SOString = '');
+    destructor Destroy; override;
 
     { ISO8601 formatted date Parser }
     class function ParseISO8601Date(const ISO8601Date: SOString;
@@ -224,6 +235,13 @@ constructor TSuperTimeZone.Create(const TimeZoneName: SOString);
 begin
   inherited Create;
   FName := TimeZoneName;
+  FDaylightDisabled := TExpirable<Boolean>.Box(GetDaylightDisabled);
+  FCacheTZI := TDictionary<Word, TExpirable<TTimeZoneInformation>>.Create;
+end;
+
+destructor TSuperTimeZone.Destroy;
+begin
+  FCacheTZI.Free;
 end;
 
 function TSuperTimeZone.LocalToUTC(const DelphiDateTime: TDateTime): TDateTime;
@@ -365,10 +383,9 @@ end;
 
 function TSuperTimeZone.GetName: SOString;
 begin
-  if FName <> '' then
-    Result := FName
-  else
-    Result := GetCurrentTimeZone;
+  if FName = '' then
+    FName := GetCurrentTimeZone;
+  Result := FName;
 end;
 
 class function TSuperTimeZone.GetCurrentTimeZone: SOString;
@@ -406,6 +423,9 @@ function TSuperTimeZone.GetDaylightDisabled: Boolean;
 var
   KeyName: SOString;
 begin
+  if FDaylightDisabled.IsValid then
+    Exit(FDaylightDisabled.Data);
+
   Result := False;
   KeyName := TZ_KEY + Name;
   with TRegistry.Create do
@@ -417,6 +437,7 @@ begin
         Result := ReadBool('IsObsolete');
       CloseKey;
     end;
+    FDaylightDisabled := TExpirable<Boolean>.Box(Result);
   finally
     Free;
   end;
@@ -437,7 +458,14 @@ var
   KeyName: SOString;
   FirstYear, LastYear, ChangeYear: Word;
   Retry: Boolean;
+  CachedData: TExpirable<TTimeZoneInformation>;
 begin
+  if FCacheTZI.TryGetValue(Year, CachedData) and CachedData.IsValid then
+  begin
+    TZI := CachedData.Data;
+    Exit(True);
+  end;
+
   FillChar(TZI, SizeOf(TZI), 0);
   KeyName := TZ_KEY + Name;
   with TRegistry.Create do
@@ -497,6 +525,8 @@ begin
     TZI.DaylightBias := RegTZI.DaylightBias;
 
     Result := True;
+
+    FCacheTZI.AddOrSetValue(Year, TExpirable<TTimeZoneInformation>.Box(TZI));
   finally
     Free;
   end;
@@ -1371,6 +1401,19 @@ begin
   Exit;
 error:
   Result := False;
+end;
+
+{ TSuperTimeZone.TExpirable<T> }
+
+class function TSuperTimeZone.TExpirable<T>.Box(Data: T): TExpirable<T>;
+begin
+  Result.Data := Data;
+  Result.Timestamp := Now;
+end;
+
+function TSuperTimeZone.TExpirable<T>.IsValid: Boolean;
+begin
+  Result := Trunc(Self.Timestamp) = Trunc(Now);
 end;
 
 end.
