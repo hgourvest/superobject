@@ -3413,10 +3413,13 @@ begin
       begin
         Result := TSuperObject.Create(stObject);
         if ObjectFindFirst(self, ite) then
-        with Result.AsObject do
-        repeat
-          PutO(ite.key, ite.val.Clone);
-        until not ObjectFindNext(ite);
+          with Result.AsObject do
+            repeat
+              if ite.val = nil then
+                PutO(ite.key, nil)
+              else
+                PutO(ite.key, ite.val.Clone);
+            until not ObjectFindNext(ite);
         ObjectFindClose(ite);
       end;
     stArray:
@@ -3424,8 +3427,8 @@ begin
         Result := TSuperObject.Create(stArray);
         arr := AsArray;
         with Result.AsArray do
-        for j := 0 to arr.Length - 1 do
-          Add(arr.GetO(j).Clone);
+          for j := 0 to arr.Length - 1 do
+            Add(arr.GetO(j).Clone);
       end;
     stNull:
       Result := TSuperObject.Create(stNull);
