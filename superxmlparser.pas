@@ -1173,7 +1173,7 @@ function XMLParseFile(const FileName: string; pack: Boolean; onpi: TOnProcessing
 var
   stream: TFileStream;
 begin
-  stream := TFileStream.Create(FileName, fmOpenRead, fmShareDenyWrite);
+  stream := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
   try
     Result := XMLParseStream(stream, pack, onpi);
   finally
