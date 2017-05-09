@@ -783,18 +783,24 @@ type
     property Elements: TClassElements read FElements;
   end;
 
+  TArrayAttribute = class(TCustomAttribute)
+  end;
+
   SOElements = class(TClassAttribute);
   SOIgnore = class(TSuperIgnoreAttribute);
   SOName = class(TSuperAttribute);
   SODefault = class(TSuperAttribute);
-
+  SOArray = class(TArrayAttribute);
 
   TSuperRttiContext = class
   private
+    class function isArrayExportable(const aMember: TRttiMember): boolean;
     class function isExportable(const aType: TRttiType; const Element: TClassElement): boolean;
     class function isIgnoredObject(r: TRttiObject): boolean;
     class function GetObjectName(r: TRttiNamedObject): string;
     class function GetObjectDefault(r: TRttiObject; const obj: ISuperObject): ISuperObject;
+
+    function Array2Class(const Value: TValue; const index: ISuperObject): TSuperObject;
 
   public
     Context: TRttiContext;
@@ -5928,6 +5934,21 @@ begin
   FElements:=Elements;
 end;
 
+class function TSuperRttiContext.isArrayExportable(const aMember: TRttiMember): boolean;
+var
+  o: TCustomAttribute;
+begin
+  result:=false;
+  for o in aMember.GetAttributes do
+  begin
+    if o is SOArray then
+    begin
+      result:=true;
+      break;
+    end;
+  end;
+end;
+
 class function TSuperRttiContext.isExportable(const aType: TRttiType; const Element: TClassElement): boolean;
 var
   o: TCustomAttribute;
@@ -5990,6 +6011,39 @@ begin
     Result := ToJson(v, index) else
     Result := ToJson(v, so);
 end;
+
+function TSuperRttiContext.Array2Class(const Value: TValue; const index: ISuperObject): TSuperObject;
+var
+  enumObject,
+  obj: TObject;
+  getEnumerator,
+  moveNext: TRttiMethod;
+  current: TRttiProperty;
+  currentValue,
+  enumeratorValue: TValue;
+begin
+  result:=nil;
+  obj:=TValueData(Value).FAsObject;
+
+  getEnumerator:=context.GetType(obj.ClassType).GetMethod('GetEnumerator');
+  if(getEnumerator<>nil) then
+  begin
+    Result := TSuperObject.Create(stArray);
+
+    enumeratorValue:=getEnumerator.Invoke(obj, []);
+    enumObject:=TValueData(enumeratorValue).FAsObject;
+
+    moveNext:=context.GetType(enumObject.ClassType).GetMethod('MoveNext');
+    current:=context.GetType(enumObject.ClassType).GetProperty('Current');
+
+    while moveNext.Invoke(enumObject, []).AsBoolean do
+    begin
+      currentValue:=current.GetValue(enumObject);
+      result.AsArray.Add(toJSon(currentValue, index));
+    end;
+  end;
+end;
+
 
 function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject;
   var Value: TValue): Boolean;
@@ -6494,7 +6548,10 @@ function TSuperRttiContext.ToJson(var value: TValue; const index: ISuperObject):
             if (not isIgnoredObject(f)) and (f.FieldType <> nil) then
             begin
               v := f.GetValue(Value.AsObject);
-              Result.AsObject[getObjectName(f)] := ToJson(v, index);
+              if isArrayExportable(f) then
+                Result.AsObject[getObjectName(f)] := Array2Class(v, index)
+              else
+                Result.AsObject[getObjectName(f)] := ToJson(v, index);
             end;
 
         if isExportable(Context.GetType(Value.AsObject.ClassType), ceProperty) then
@@ -6502,7 +6559,11 @@ function TSuperRttiContext.ToJson(var value: TValue; const index: ISuperObject):
             if (not isIgnoredObject(p)) and (p.PropertyType <> nil) then
             begin
               v := p.GetValue(Value.AsObject);
-              Result.AsObject[getObjectName(p)] := ToJson(v, index);
+
+              if isArrayExportable(p) then
+                Result.AsObject[getObjectName(p)] := Array2Class(v, index)
+              else
+                Result.AsObject[getObjectName(p)] := ToJson(v, index);
             end
       end else
         Result := o;
