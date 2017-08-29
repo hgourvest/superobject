@@ -88,8 +88,9 @@
   {$define VER210ORGREATER}
 {$ifend}
 
-{$if defined(VER230) or defined(VER240)  or defined(VER250) or
-     defined(VER260) or defined(VER270)  or defined(VER280)}
+{$if defined(VER230) or defined(VER240) or defined(VER250) or
+     defined(VER260) or defined(VER270) or defined(VER280) or
+     defined(VER290) or defined(VER310) or defined(VER320)}
   {$define VER210ORGREATER}
   {$define VER230ORGREATER}
 {$ifend}
@@ -6382,11 +6383,13 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
 
   procedure FromInterface;
   const
-    SOGUID: TGuid = '{4B86A9E3-E094-4E5A-954A-69048B7B6327}';
+    SOGUID: TGUID = '{4B86A9E3-E094-4E5A-954A-69048B7B6327}';
   var
     o: ISuperObject;
+    g: TGUID;
   begin
-    if CompareMem(@GetTypeData(TypeInfo).Guid, @SOGUID, SizeOf(TGUID)) then
+    g := GetTypeData(TypeInfo).Guid;
+    if CompareMem(@g, @SOGUID, SizeOf(TGUID)) then
     begin
       if obj <> nil then
         TValue.Make(@obj, TypeInfo, Value)
