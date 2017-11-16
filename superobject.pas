@@ -6156,12 +6156,21 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
 {$ELSE}
         p := TValueData(Value).FValueData.GetReferenceToRawData;
 {$ENDIF}
-        Result := FromJson(f.FieldType.Handle, GetFieldDefault(f, obj.AsObject[GetFieldName(f)]), v);
+        try
+          Result := FromJson(f.FieldType.Handle, GetFieldDefault(f, obj.AsObject[GetFieldName(f)]), v);
+        except
+          on E: Exception do
+          begin
+            Error(Format('Record.(%s/%s) : %s', [f.Name, GetFieldName(f), E.Message]), obj);
+            Result := False;
+          end;
+        end;
+
         if Result then
           f.SetValue(p, v)
         else
         begin
-          Error('Record (from object)', obj);
+          Error(Format('Record (from object, field=%s)', [GetFieldName(f)]), obj);
           Break;
         end;
       end
