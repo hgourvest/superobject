@@ -791,6 +791,7 @@ type
   SOName = class(TSuperAttribute);
   SODefault = class(TSuperAttribute);
   SOArray = class(TArrayAttribute);
+  SOType = class(TSuperAttribute);
 
   TSuperRttiContext = class
   private
@@ -6491,6 +6492,9 @@ begin
       begin
         TValue.Make(nil, TypeInfo, Value);
         Result := Serial(Self, obj, Value);
+
+        if(value.IsObject) then
+          FromClass;
       end;
   end else
     Result := False;
