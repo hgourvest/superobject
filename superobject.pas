@@ -6199,7 +6199,12 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
   var
     f: TRttiField;
     p: TRttiProperty;
+    addMethod,firstmethod: TRttiMethod;
+    elementType: TRttiType;
+    arrayValue,
     v: TValue;
+    oName: string;
+    count, i: integer;
   begin
     case ObjectGetType(obj) of
       stObject:
@@ -6230,7 +6235,39 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
         begin
           Value := nil;
           Result := True;
-        end
+        end;
+      stArray:
+        begin
+          result:=true;
+          if Value.Kind <> tkClass then
+            Value := GetTypeData(TypeInfo).ClassType.Create;
+
+          count := obj.AsArray.Length;
+          oName:=value.AsObject.ClassName;
+          delete(oName, 1, pos('<', oName));
+          delete(oName, length(oName), 1);
+
+          if count>0 then
+          begin
+            firstmethod:=Context.GetType(TypeInfo).GetMethod('First');
+            if firstmethod<>nil then
+            begin
+              elementType := firstmethod.ReturnType;
+            end
+            else
+              elementType:=self.Context.FindType(oName);
+          end;
+
+          for i := 0 to count - 1 do
+          begin
+            if not FromJson(elementType.Handle, obj.AsArray[i], arrayValue) then
+              Break;
+
+            AddMethod:=Context.GetType(TypeInfo).GetMethod('Add');
+            if(addMethod<>nil) then
+              addMethod.Invoke(value.AsObject, [arrayValue]);
+          end;
+        end;
     else
       // error
       Value := nil;
