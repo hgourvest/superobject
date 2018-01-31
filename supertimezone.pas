@@ -588,6 +588,7 @@ var
   llTime: Int64;
   SysTime: TSystemTime;
   ftTemp: TFileTime;
+  year: Word;
 begin
   llTime := 0;
   if (not GetDaylightDisabled) and (pTZinfo^.DaylightDate.wMonth <> 0) then
@@ -610,38 +611,52 @@ begin
     if (not IsLocal) then
     begin
       llTime := PInt64(lpFileTime)^;
-      Dec(llTime, Int64(pTZinfo^.Bias + pTZinfo^.DaylightBias) * 600000000);
+      Dec(llTime, Int64(pTZinfo^.Bias) * 600000000);
       PInt64(@ftTemp)^ := llTime;
       lpFileTime := @ftTemp;
     end;
 
     FileTimeToSystemTime(lpFileTime^, SysTime);
-
-    (* check for daylight savings *)
-    Ret := DayLightCompareDate(@SysTime, @pTZinfo^.StandardDate);
-    if (Ret = -2) then
-    begin
-      Result := TIME_ZONE_ID_INVALID;
-      Exit;
-    end;
-
-    BeforeStandardDate := Ret < 0;
+    year := SysTime.wYear;
 
     if (not IsLocal) then
     begin
-      Dec(llTime, Int64(pTZinfo^.StandardBias - pTZinfo^.DaylightBias) * 600000000);
+      Dec(llTime, Int64(pTZinfo^.DaylightBias) * 600000000);
       PInt64(@ftTemp)^ := llTime;
       FileTimeToSystemTime(lpFileTime^, SysTime);
     end;
 
-    Ret := DayLightCompareDate(@SysTime, @pTZinfo^.DaylightDate);
-    if (Ret = -2) then
+    (* check for daylight savings *)
+    if (year = SysTime.wYear) then
     begin
-      Result := TIME_ZONE_ID_INVALID;
-      Exit;
+      ret := DayLightCompareDate(@SysTime, @pTZinfo.StandardDate);
+      if (ret = -2) then
+      begin
+        Result := TIME_ZONE_ID_INVALID;
+        Exit;
+      end;
+      beforeStandardDate := ret < 0;
+    end else
+      beforeStandardDate := SysTime.wYear < year;
+
+    if (not islocal) then
+    begin
+      Dec(llTime, (pTZinfo.StandardBias - pTZinfo.DaylightBias) * 600000000);
+      PInt64(@ftTemp)^ := llTime;
+      FileTimeToSystemTime(lpFileTime^, SysTime);
     end;
 
-    AfterDaylightDate := Ret >= 0;
+    if (year = SysTime.wYear) then
+    begin
+      ret := DayLightCompareDate(@SysTime, @pTZinfo.DaylightDate);
+      if (ret = -2) then
+      begin
+        Result := TIME_ZONE_ID_INVALID;
+        Exit;
+      end;
+      afterDaylightDate := ret >= 0;
+    end else
+      afterDaylightDate := SysTime.wYear > year;
 
     Result := TIME_ZONE_ID_STANDARD;
     if pTZinfo^.DaylightDate.wMonth < pTZinfo^.StandardDate.wMonth then
