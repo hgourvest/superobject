@@ -5979,7 +5979,9 @@ var
 begin
   for o in r.GetAttributes do
     if o is SOName then
+    begin
       Exit(SOName(o).Name);
+    end;
   Result := r.Name;
 end;
 
@@ -6260,6 +6262,7 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
 
           for i := 0 to count - 1 do
           begin
+            arrayValue:=TValue.Empty;
             if not FromJson(elementType.Handle, obj.AsArray[i], arrayValue) then
               Break;
 
