@@ -8,7 +8,8 @@ interface
 
 {$if defined(VER230) or defined(VER240)  or defined(VER250) or
      defined(VER260) or defined(VER270)  or defined(VER280) or
-     defined(VER290) or defined(VER300)  or defined(VER310)}
+     defined(VER290) or defined(VER300)  or defined(VER310) or
+     defined(VER320)}
   {$define VER210ORGREATER}
   {$define VER230ORGREATER}
 {$ifend}
