@@ -77,7 +77,7 @@
  *)
 
 {$IFDEF FPC}
-  {$MODE OBJFPC}{$H+}
+  {$MODE DELPHI}{$H+}
 {$ENDIF}
 
 {$DEFINE SUPER_METHOD}
@@ -118,7 +118,7 @@ unit superobject;
 
 interface
 uses
-  Classes, supertypes
+  Classes, supertypes, Types
 {$IFDEF HAVE_RTTI}
   ,Generics.Collections, RTTI, TypInfo
 {$ENDIF}
@@ -517,7 +517,7 @@ type
     function GetProcessing: boolean;
     procedure SetProcessing(value: boolean);
     function ForcePath(const path: SOString; dataType: TSuperType = stObject): ISuperObject;
-    function Format(const str: SOString; BeginSep: SOChar = '%'; EndSep: SOChar = '%'): SOString;
+    function FormatStr(const str: SOString; BeginSep: SOChar = '%'; EndSep: SOChar = '%'): SOString;
 
     function GetO(const path: SOString): ISuperObject;
     procedure PutO(const path: SOString; const Value: ISuperObject);
@@ -636,8 +636,8 @@ type
 {$ELSE}
     function QueryInterface(const IID: TGUID; out Obj): HResult; virtual; stdcall;
 {$ENDIF}
-    function _AddRef: Integer; virtual; stdcall;
-    function _Release: Integer; virtual; stdcall;
+    function _AddRef: Integer; virtual; {$IFDEF UNIX}cdecl{$ELSE}stdcall{$ENDIF};
+    function _Release: Integer; virtual; {$IFDEF UNIX}cdecl{$ELSE}stdcall{$ENDIF};
 
     function GetO(const path: SOString): ISuperObject;
     procedure PutO(const path: SOString; const Value: ISuperObject);
@@ -712,7 +712,7 @@ type
     function GetN(const path: SOString): ISuperObject;
     procedure PutN(const path: SOString; const Value: ISuperObject);
     function ForcePath(const path: SOString; dataType: TSuperType = stObject): ISuperObject;
-    function Format(const str: SOString; BeginSep: SOChar = '%'; EndSep: SOChar = '%'): SOString;
+    function FormatStr(const str: SOString; BeginSep: SOChar = '%'; EndSep: SOChar = '%'): SOString;
 
     property N[const path: SOString]: ISuperObject read GetN write PutN;
     property O[const path: SOString]: ISuperObject read GetO write PutO; default;
@@ -815,6 +815,7 @@ function SO(const value: Variant): ISuperObject; overload;
 function SO(const Args: array of const): ISuperObject; overload;
 
 function SA(const Args: array of const): ISuperObject; overload;
+function SA(const AStrings: TStringDynArray): ISuperObject; overload;
 
 function TryObjectToDate(const obj: ISuperObject; var dt: TDateTime): Boolean;
 function UUIDToString(const g: TGUID): SOString;
@@ -837,7 +838,11 @@ function SOInvoke(const obj: TValue; const method: string; const params: string;
 
 implementation
 uses
-  sysutils, Windows, superdate
+  sysutils,
+  {$IFDEF MSWINDOWS}
+  Windows,
+  {$ENDIF}
+  superdate
 {$IFDEF FPC}
   ,sockets
 {$ELSE}
@@ -1011,7 +1016,7 @@ begin
   end;
 end;
 
-function SO(const s: SOString): ISuperObject; overload;
+function SO(const s: SOString = '{}'): ISuperObject;
 begin
   Result := TSuperObject.ParseString(PSOChar(s), False);
 end;
@@ -1043,7 +1048,7 @@ begin
         if TVarRec(Args[j]).VInterface = nil then
           Add(nil) else
           if IInterface(TVarRec(Args[j]).VInterface).QueryInterface(ISuperObject, intf) = 0 then
-            Add(ISuperObject(intf)) else
+            Add(TSuperObject(intf)) else
             Add(nil);
       vtPointer :
         if TVarRec(Args[j]).VPointer = nil then
@@ -1066,6 +1071,15 @@ begin
     else
       assert(false);
     end;
+end;
+
+function SA(const AStrings: TStringDynArray): ISuperObject; overload;
+var
+  i: integer;
+begin
+  Result := TSuperObject.Create(stArray);
+  for i := 0 to High(AStrings) do
+   Result.AsArray.Add(TSuperObject.Create(AStrings[i]));
 end;
 
 function SO(const Args: array of const): ISuperObject; overload;
@@ -3501,7 +3515,7 @@ begin
   Result := ParseString(PSOChar(path), False, True, Self, [foCreatePath], nil, dataType);
 end;
 
-function TSuperObject.Format(const str: SOString; BeginSep: SOChar; EndSep: SOChar): SOString;
+function TSuperObject.FormatStr(const str: SOString; BeginSep: SOChar; EndSep: SOChar): SOString;
 var
   p1, p2: PSOChar;
 begin
@@ -4235,12 +4249,12 @@ begin
   end;
 end;
 
-function TSuperObject._AddRef: Integer; stdcall;
+function TSuperObject._AddRef: Integer;
 begin
   Result := InterlockedIncrement(FRefCount);
 end;
 
-function TSuperObject._Release: Integer; stdcall;
+function TSuperObject._Release: Integer;
 begin
   Result := InterlockedDecrement(FRefCount);
   if Result = 0 then
@@ -6623,4 +6637,3 @@ finalization
   Assert(debugcount = 0, 'Memory leak');
 {$ENDIF}
 end.
-
