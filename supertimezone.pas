@@ -3,7 +3,10 @@ unit supertimezone;
 interface
 
 uses
-  Windows, Registry, SysUtils, Math, Generics.Collections,
+  {$IFDEF MSWINDOWS}
+  Windows,
+  {$ENDIF}
+  Registry, SysUtils, Math, Generics.Collections,
   supertypes;
 
 type
@@ -17,6 +20,7 @@ type
     FName: SOString;
     function GetName: SOString;
 
+    {$IFDEF MSWINDOWS}
     { Windows Internals }
     function TzSpecificLocalTimeToSystemTime(
       const lpTimeZoneInformation: PTimeZoneInformation;
@@ -34,6 +38,7 @@ type
 
     function DayLightCompareDate(const date: PSystemTime;
       const compareDate: PSystemTime): Integer;
+    {$ENDIF}
   private
     class constructor Init;
     class destructor Finish;
@@ -64,7 +69,9 @@ type
 
     { TZ Info }
     class function GetCurrentTimeZone: SOString;
+    {$IFDEF MSWINDOWS}
     function GetTimeZoneInformation(Year: Word; var TZI: TTimeZoneInformation): Boolean;
+    {$ENDIF}
     function GetDaylightDisabled: Boolean;
     property Name: SOString read GetName;
 
@@ -81,27 +88,29 @@ type
 { Windows 2000+ }
 function _SystemTimeToTzSpecificLocalTime(
   lpTimeZoneInformation: PTimeZoneInformation;
-  var lpUniversalTime, lpLocalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'SystemTimeToTzSpecificLocalTime' delayed;
+  var lpUniversalTime, lpLocalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'SystemTimeToTzSpecificLocalTime'{$IFNDEF FPC} delayed{$ENDIF};
 
 { Windows XP+ }
 function _TzSpecificLocalTimeToSystemTime(
   lpTimeZoneInformation: PTimeZoneInformation;
-  var lpLocalTime, lpUniversalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'TzSpecificLocalTimeToSystemTime' delayed;
+  var lpLocalTime, lpUniversalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'TzSpecificLocalTimeToSystemTime'{$IFNDEF FPC} delayed{$ENDIF};
 
 (* EXtended version - DST Aware *)
 
+{$IFNDEF FPC}
 { Windows 7+ }
 function _TzSpecificLocalTimeToSystemTimeEx(
   const lpTimeZoneInformation: PDynamicTimeZoneInformation;
-  const lpLocalTime: PSystemTime; var lpUniversalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'TzSpecificLocalTimeToSystemTimeEx' delayed;
+  const lpLocalTime: PSystemTime; var lpUniversalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'TzSpecificLocalTimeToSystemTimeEx'{$IFNDEF FPC} delayed{$ENDIF};
 
 { Windows 7+ }
 function _SystemTimeToTzSpecificLocalTimeEx(
   const lpTimeZoneInformation: PDynamicTimeZoneInformation;
-   const lpUniversalTime: PSystemTime; var lpLocalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'SystemTimeToTzSpecificLocalTimeEx' delayed;
+   const lpUniversalTime: PSystemTime; var lpLocalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'SystemTimeToTzSpecificLocalTimeEx'{$IFNDEF FPC} delayed{$ENDIF};
+{$ENDIF}
 
 { Convert Local <=> UTC for specific time-zones using the Windows API only. NOT Guaranteed to work }
-   
+
 function _ConvertLocalDateTimeToUTC(const TimeZoneName: SOString;
   const Local: TDateTime; var UTC: TDateTime): Boolean;
 
@@ -119,9 +128,11 @@ implementation
 
 function _ConvertLocalDateTimeToUTC(const TimeZoneName: SOString;
   const Local: TDateTime; var UTC: TDateTime): Boolean;
+{$IFNDEF FPC}
 var
   DTZI: TDynamicTimeZoneInformation;
   local_st, utc_st: TSystemTime;
+{$ENDIF}
 begin
   if not CheckWin32Version(6, 1) then
   begin
@@ -129,6 +140,7 @@ begin
     Exit;
   end;
 
+  {$IFNDEF FPC}
   { We work with system times }
   DateTimeToSystemTime(Local, local_st);
 
@@ -148,15 +160,18 @@ begin
   end
   else
     Result := False;
+  {$ENDIF}
 end;
 
 { Convert UTC -> Local for specific time-zones using the Windows API only. NOT Guaranteed to work }
 
 function _ConvertUTCDateTimeToLocal(const TimeZoneName: SOString;
   const UTC: TDateTime; var Local: TDateTime): Boolean;
+{$IFNDEF FPC}
 var
   DTZI: TDynamicTimeZoneInformation;
   utc_st, local_st: TSystemTime;
+{$ENDIF}
 begin
   if not CheckWin32Version(6, 1) then
   begin
@@ -164,6 +179,7 @@ begin
     Exit;
   end;
 
+  {$IFNDEF FPC}
   { We work with system times }
   DateTimeToSystemTime(UTC, utc_st);
 
@@ -183,6 +199,7 @@ begin
   end
   else
     Result := False;
+  {$ENDIF}
 end;
 {$ENDIF}
 
@@ -190,14 +207,18 @@ end;
 
 class constructor TSuperTimeZone.Init;
 begin
+  {$IFNDEF FPC}
   InitializeCriticalSection(FCacheCS);
+  {$ENDIF}
   FCache := TObjectDictionary<string, TSuperTimeZone>.Create([doOwnsValues]);
 end;
 
 class destructor TSuperTimeZone.Finish;
 begin
   FCache.Free;
+  {$IFNDEF FPC}
   DeleteCriticalSection(FCacheCS);
+  {$ENDIF}
 end;
 
 class function TSuperTimeZone.GetSuperTimeZoneInstance(
@@ -227,52 +248,68 @@ begin
 end;
 
 function TSuperTimeZone.LocalToUTC(const DelphiDateTime: TDateTime): TDateTime;
+{$IFDEF MSWINDOWS}
 var
   local, utc: TSystemTime;
   tzi: TTimeZoneInformation;
+  {$ENDIF}
 begin
+  {$IFDEF MSWINDOWS}
   DateTimeToSystemTime(DelphiDateTime, local);
   if GetTimeZoneInformation(local.wYear, tzi) and TzSpecificLocalTimeToSystemTime(@tzi, local, utc) then
     Result := SystemTimeToDateTime(utc)
   else
+  {$ENDIF}
     Result := DelphiDateTime;
 end;
 
 function TSuperTimeZone.UTCToLocal(const DelphiDateTime: TDateTime): TDateTime;
+{$IFDEF MSWINDOWS}
 var
   utc, local: TSystemTime;
   tzi: TTimeZoneInformation;
+  {$ENDIF}
 begin
+  {$IFDEF MSWINDOWS}
   DateTimeToSystemTime(DelphiDateTime, utc);
   if GetTimeZoneInformation(utc.wYear, tzi) and SystemTimeToTzSpecificLocalTime(@tzi, utc, local) then
     Result := SystemTimeToDateTime(local)
   else
+  {$ENDIF}
     Result := DelphiDateTime;
 end;
 
 function TSuperTimeZone.DelphiToJava(const DelphiDateTime: TDateTime): Int64;
+{$IFDEF MSWINDOWS}
 var
   local, utc, st: TSystemTime;
   tzi: TTimeZoneInformation;
+  {$ENDIF}
 begin
+{$IFDEF MSWINDOWS}
   DateTimeToSystemTime(DelphiDateTime, local);
   if GetTimeZoneInformation(local.wYear, tzi) and TzSpecificLocalTimeToSystemTime(@tzi, local, utc) then
     st := utc
   else
     st := local;
   Result := Round((SystemTimeToDateTime(st) - 25569) * 86400000);
+  {$ENDIF}
 end;
 
 function TSuperTimeZone.JavaToDelphi(const JavaDateTime: Int64): TDateTime;
+{$IFDEF MSWINDOWS}
 var
   utc, local: TSystemTime;
   tzi: TTimeZoneInformation;
+  {$ENDIF}
 begin
+{$IFDEF MSWINDOWS}
   DateTimeToSystemTime(25569 + (JavaDateTime / 86400000), utc);
   if GetTimeZoneInformation(utc.wYear, tzi) and SystemTimeToTzSpecificLocalTime(@tzi, utc, local) then
     Result := SystemTimeToDateTime(local)
   else
     Result := SystemTimeToDateTime(utc);
+  {$ENDIF}
 end;
 
 function TSuperTimeZone.DelphiToISO8601(
@@ -282,11 +319,14 @@ const
   TZ_Fmt  = '%s%.2d:%.2d';
 var
   local, utc: TSystemTime;
+  {$IFDEF MSWINDOWS}
   tzi: TTimeZoneInformation;
+  {$ENDIF}
   bias: TDateTime;
   h, m, d: Word;
   iso: SOString;
 begin
+{$IFDEF MSWINDOWS}
   DateTimeToSystemTime(DelphiDateTime, local);
   iso := Format(ISO_Fmt, [
     local.wYear, local.wMonth, local.wDay,
@@ -302,6 +342,7 @@ begin
     end;
   end
   else
+  {$ENDIF}
     Result := iso;
 end;
 
@@ -322,18 +363,20 @@ end;
 
 function TSuperTimeZone.ISO8601ToJava(const ISO8601Date: SOString;
   var JavaDateTime: Int64): Boolean;
+{$IFDEF MSWINDOWS}
 var
   st: TSystemTime;
   dayofyear: Integer;
   week: Word;
   bias: Integer;
   havetz, havedate: Boolean;
-
   tzi: TTimeZoneInformation;
   utc: TSystemTime;
   m: Word;
   DayTable: PDayTable;
+  {$ENDIF}
 begin
+{$IFDEF MSWINDOWS}
   if ParseISO8601Date(ISO8601Date, st, dayofyear, week, bias, havetz, havedate) then
   begin
     if (not havetz) and GetTimeZoneInformation(st.wYear, tzi) and TzSpecificLocalTimeToSystemTime(@tzi, st, utc) then
@@ -360,6 +403,7 @@ begin
     Result := True;
   end
   else
+  {$ENDIF}
     Result := False;
 end;
 
@@ -422,6 +466,7 @@ begin
   end;
 end;
 
+{$IFDEF MSWINDOWS}
 function TSuperTimeZone.GetTimeZoneInformation(Year: Word;
   var TZI: TTimeZoneInformation): Boolean;
 type
@@ -705,6 +750,7 @@ begin
   PInt64(@ft)^ := llTime;
   Result := FileTimeToSystemTime(ft, lpLocalTime);
 end;
+{$ENDIF}
 
 class function TSuperTimeZone.ParseISO8601Date(const ISO8601Date: SOString;
   var st: TSystemTime; var dayofyear: Integer; var week: Word;
