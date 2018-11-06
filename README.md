@@ -1,5 +1,7 @@
 # SuperObject
 
+What is new in this repository? New is FPC Windows/Linux compatibility. FPC Version 3.1.1 is used.
+
 ## What is JSON ?
 
 - JSON (JavaScript Object Notation) is a lightweight data-interchange format.
