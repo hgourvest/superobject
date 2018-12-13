@@ -1,6 +1,6 @@
 # SuperObject
 
-What is new in this repository? New is the FPC Windows/Linux compatibility. FPC Version 3.1.1 is used.
+This version is compitible with Delphi and FPC complilers. Also it has Windows/Linux compatibility. Tested with FPC Version 3.0.4, 3.1.1 and last 3.3.1.
 
 ## What is JSON ?
 
