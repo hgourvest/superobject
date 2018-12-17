@@ -1437,4 +1437,9 @@ error:
   Result := False;
 end;
 
+initialization
+finalization
+{$IFNDEF HAVE_CLASS_CONSTRUCTOR}
+  _LocalSuperTimeZone.Free;
+{$ENDIF}
 end.
