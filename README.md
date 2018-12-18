@@ -216,3 +216,68 @@ SO('{собственность: bla bla bla}');
 // excadecimal
 SO('{foo: \xFF}');
 ```
+## Additional examples
+
+Get a Json string:
+
+     function TDataModule3.GetSearchLostStatus: string;
+     var
+      X: ISuperObject;
+     begin
+      X := SO;
+      with FServiceThread do
+      begin
+       X.B['NowSearchForFile'] := NowSearchForFile;
+       X.S['LastLostFile'] := LastLostFile;
+       X.B['NowSearchForRec'] := NowSearchForRec;
+       X.S['LostRecProgress'] := LostRecProgress;
+      end;
+      Result := X.AsJSON;
+     end;
+
+Get data back from the Json string:
+
+     procedure TForm2.SetSearchLostStatus(const Params: string);
+     var
+      s: string;
+      X: ISuperObject;
+     begin
+      X := TSuperObject.ParseString(PChar(Params), True);
+      FNowSearchForFile := not X.B['NowSearchForFile'];
+      FLastLostFile := X.S['LastLostFile'];
+      FNowSearchForRec := X.B['NowSearchForRec'];
+      FLostRecProgress := X.I['LostRecProgress'];
+     end;
+
+An array usage:
+
+     procedure TForm4.SetQueueStatus(const Params: string);
+     var
+      j: integer;
+      X:  ISuperObject;
+      X1: TSuperArray;
+      s: string;
+     begin
+      X  := TSuperObject.ParseString(PChar(s), True);
+      X1 := X.A['Queues'];
+      StringGrid1.RowCount := X1.Length + 1;
+      for j := 0 to X1.Length - 1 do
+       with StringGrid1, X1[j] do
+       begin
+        Cells[0, j + 1] := S['NAME'];
+        if j = 0 then
+         Cells[1, j + 1] := S['FILES_QUEUED1'] + ' + ' + S['FILES_QUEUED2']
+        else
+         Cells[1, j + 1] := S['FILES_QUEUED'];
+        Cells[2, j + 1] := S['STATUS'];
+        Cells[3, j + 1] := S['FILES_DONE'];
+        Cells[4, j + 1] := S['FILES_SKIPPED'];
+       end;
+     end;
+
+Path usage:
+
+     var s: string; json, field: iSuperObject;
+     ....
+      field := json.O['Document.CurrentItems.DocumentItem.Fields.FieldValue[1].Value'];
+      s := json.O['Value'].AsString;
