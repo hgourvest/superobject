@@ -6316,7 +6316,11 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
   var
     o: ISuperObject;
   begin
+    {$IFDEF VER230ORGREATER}
+    if isEqualGUID(GetTypeData(TypeInfo).Guid, soguid) then
+    {$ELSE}
     if CompareMem(@GetTypeData(TypeInfo).Guid, @soguid, SizeOf(TGUID)) then
+    {$ENDIF}
     begin
       if obj <> nil then
         TValue.Make(@obj, TypeInfo, Value) else
