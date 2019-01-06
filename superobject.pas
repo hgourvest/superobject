@@ -86,24 +86,24 @@
 {$if CompilerVersion > 20}
   {$define VER210ORGREATER}
   {$define VER230ORGREATER}
-{$ifend}
+{$endif}
 
 {$if defined(FPC) or defined(VER170) or defined(VER180) or defined(VER190)
   or defined(VER200) or defined(VER210ORGREATER)}
   {$DEFINE HAVE_INLINE}
-{$ifend}
+{$endif}
 
 {$if defined(VER210ORGREATER)}
   {$define HAVE_RTTI}
-{$ifend}
+{$endif}
 
 {$if defined(VER230ORGREATER)}
   {$define NEED_FORMATSETTINGS}
-{$ifend}
+{$endif}
 
 {$if defined(FPC) and defined(VER2_6)}
   {$define NEED_FORMATSETTINGS}
-{$ifend}
+{$endif}
 
 {$OVERFLOWCHECKS OFF}
 {$RANGECHECKS OFF}
@@ -619,7 +619,7 @@ type
         stMethod: (c_method: TSuperMethod);
 {$ENDIF}
       end;
-{.$ifend}
+{.$endif}
     FOString: SOString;
     function GetDataType: TSuperType;
     function GetDataPtr: Pointer;
@@ -943,18 +943,18 @@ begin
     Result := (p - Str);
   end;
 end;
-{$ifend}
+{$endif}
 
 function FloatToJson(const value: Double): SOString;
 var
   p: PSOChar;
 begin
   Result := FloatToStr(value);
-  if {$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$ifend}DecimalSeparator <> '.' then
+  if {$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$endif}DecimalSeparator <> '.' then
   begin
     p := PSOChar(Result);
     while p^ <> #0 do
-      if p^ <> SOChar({$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$ifend}DecimalSeparator) then
+      if p^ <> SOChar({$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$endif}DecimalSeparator) then
       inc(p) else
       begin
         p^ := '.';
@@ -968,11 +968,11 @@ var
   p: PSOChar;
 begin
   Result := CurrToStr(value);
-  if {$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$ifend}DecimalSeparator <> '.' then
+  if {$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$endif}DecimalSeparator <> '.' then
   begin
     p := PSOChar(Result);
     while p^ <> #0 do
-      if p^ <> SOChar({$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$ifend}DecimalSeparator) then
+      if p^ <> SOChar({$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$endif}DecimalSeparator) then
       inc(p) else
       begin
         p^ := '.';
@@ -1056,7 +1056,7 @@ begin
 {$if declared(vtUnicodeString)}
       vtUnicodeString:
           Add(TSuperObject.Create(SOString(string(TVarRec(Args[j]).VUnicodeString))));
-{$ifend}
+{$endif}
     else
       assert(false);
     end;
@@ -1100,7 +1100,7 @@ begin
   {$ELSE}
     varUString:  Result := TSuperObject.Create(SOString(string(VUString)));
   {$ENDIF}
-{$ifend}
+{$endif}
   else
     raise Exception.CreateFmt('Unsuported variant data type: %d', [VType]);
   end;
