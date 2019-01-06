@@ -6277,6 +6277,33 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
       Result := False;
   end;
 
+  procedure FromEnum;
+  var
+    TypeData: PTypeData;
+    i: Integer;
+  begin
+    TValue.Make(nil, TypeInfo, Value);
+
+    case ObjectGetType(obj) of
+    stInt, stBoolean:
+      begin
+        i := obj.AsInteger;
+        TypeData := GetTypeData(TypeInfo);
+        if TypeData.MaxValue > TypeData.MinValue then
+          Result := (i >= TypeData.MinValue) and (i <= TypeData.MaxValue) else
+          Result := (i >= TypeData.MinValue) and (i <= Int64(PCardinal(@TypeData.MaxValue)^));
+        if Result then
+          TValue.Make(@i, TypeInfo, Value);
+      end;
+    stString:
+      begin
+        Value := TValue.FromOrdinal(TypeInfo, GetEnumValue(Value.TypeInfo, obj.AsString));
+      end;
+    else
+      Result := False;
+    end;
+  end;
+
   procedure FromUnknown;
   begin
     case ObjectGetType(obj) of
@@ -6342,7 +6369,8 @@ begin
       case TypeInfo.Kind of
         tkChar: FromChar;
         tkInt64: FromInt64;
-        tkEnumeration, tkInteger: FromInt(obj);
+        tkEnumeration: FromEnum;
+        tkInteger: FromInt(obj);
         tkSet: fromSet;
         tkFloat: FromFloat(obj);
         tkString, tkLString, tkUString, tkWString: FromString;
@@ -6518,6 +6546,11 @@ function TSuperRttiContext.ToJson(var value: TValue; const index: ISuperObject):
       Result := nil;
   end;
 
+  procedure ToEnum;
+  begin
+    Result := TSuperObject.Create(string( GetEnumName(Value.TypeInfo, GetEnumValue(Value.TypeInfo, Value.ToString))));
+  end;
+
   procedure ToInterface;
 {$IFNDEF VER210}
   var
@@ -6547,7 +6580,8 @@ begin
     case Value.Kind of
       tkInt64: ToInt64;
       tkChar: ToChar;
-      tkSet, tkInteger, tkEnumeration: ToInteger;
+      tkEnumeration: ToEnum;
+      tkSet, tkInteger: ToInteger;
       tkFloat: ToFloat;
       tkString, tkLString, tkUString, tkWString: ToString;
       tkClass: ToClass;
