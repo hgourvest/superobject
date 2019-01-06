@@ -81,7 +81,7 @@
 {$ENDIF}
 
 {$DEFINE SUPER_METHOD}
-{.$DEFINE DEBUG} // track memory leack
+{.$DEFINE DEBUG} // track memory leak
 
 
 {$if defined(VER210) or defined(VER220)}
