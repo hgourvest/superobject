@@ -91,7 +91,7 @@
 {$if defined(VER230) or defined(VER240)  or defined(VER250) or
      defined(VER260) or defined(VER270)  or defined(VER280) or
      defined(VER290) or defined(VER300)  or defined(VER310) or
-     defined(VER320)}
+     defined(VER320) or defined(VER330)}
   {$define VER210ORGREATER}
   {$define VER230ORGREATER}
 {$ifend}
