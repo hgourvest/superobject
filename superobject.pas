@@ -89,7 +89,9 @@
 {$ifend}
 
 {$if defined(VER230) or defined(VER240)  or defined(VER250) or
-     defined(VER260) or defined(VER270)  or defined(VER280)}
+     defined(VER260) or defined(VER270)  or defined(VER280) or
+     defined(VER290) or defined(VER300)  or defined(VER310) or
+     defined(VER320) or defined(VER330)}
   {$define VER210ORGREATER}
   {$define VER230ORGREATER}
 {$ifend}
@@ -1201,7 +1203,7 @@ type
       1: (bytes: array[0..15] of Byte);
       2: (words: array[0..7] of Word);
       3: (ints: array[0..3] of Cardinal);
-      4: (i64s: array[0..1] of UInt64);
+      4: (i64s: array[0..1] of {$if declared(UInt64)}UInt64{$else}Int64Rec{$ifend});
   end;
 
   function ishex(const c: SOChar): Boolean; {$IFDEF HAVE_INLINE} inline;{$ENDIF}
@@ -6320,9 +6322,11 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
   procedure FromInterface;
   const soguid: TGuid = '{4B86A9E3-E094-4E5A-954A-69048B7B6327}';
   var
+    fromguid: TGuid;
     o: ISuperObject;
   begin
-    if CompareMem(@GetTypeData(TypeInfo).Guid, @soguid, SizeOf(TGUID)) then
+    fromguid := GetTypeData(TypeInfo).Guid;
+    if CompareMem(@fromguid, @soguid, SizeOf(TGUID)) then
     begin
       if obj <> nil then
         TValue.Make(@obj, TypeInfo, Value) else
