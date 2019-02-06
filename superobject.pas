@@ -89,7 +89,8 @@
 {$ifend}
 
 {$if defined(VER230) or defined(VER240)  or defined(VER250) or
-     defined(VER260) or defined(VER270)  or defined(VER280)}
+     defined(VER260) or defined(VER270)  or defined(VER280) or
+     defined(VER290) or defined(VER300)  or defined(VER310) }
   {$define VER210ORGREATER}
   {$define VER230ORGREATER}
 {$ifend}
@@ -1181,8 +1182,7 @@ end;
 
 procedure ObjectFindClose(var F: TSuperObjectIter);
 begin
-  if Assigned(F.Ite) then
-    FreeAndNil(F.Ite);
+  FreeAndNil(F.Ite);
   F.val := nil;
 end;
 
@@ -2246,7 +2246,7 @@ class function TSuperObject.ParseFile(const FileName: string; strict: Boolean;
 var
   stream: TFileStream;
 begin
-  stream := TFileStream.Create(FileName, fmOpenRead, fmShareDenyWrite);
+  stream := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite );
   try
     Result := ParseStream(stream, strict, partial, this, options, put, dt);
   finally
@@ -6143,7 +6143,7 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
 
   procedure FromDynArray;
   var
-    i: Integer;
+    i: NativeInt; //  Integer; bugfix: see comment on DynArraySetLength
     p: Pointer;
     pb: PByte;
     val: TValue;
@@ -6155,7 +6155,13 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
       begin
         i := obj.AsArray.Length;
         p := nil;
-        DynArraySetLength(p, TypeInfo, 1, @i);
+        // This is the declaration of DynArraySetLength:
+        //  procedure DynArraySetLength(var a: Pointer; typeInfo: Pointer; dimCnt: NativeInt; lengthVec: PNativeint);
+        //
+        //  THE LAST ARGUMENT MUST POINT TO A NATIVEINT (32/64 bit integer depending on client architecture) not to a 32 bit integer!
+        //
+        // when i was declared as a plain 32 bit integer, it was causing random access violations if compiled for Win64
+        DynArraySetLength( p, TypeInfo, 1, @i);
         pb := p;
         typ := GetTypeData(TypeInfo);
         if typ.elType <> nil then
