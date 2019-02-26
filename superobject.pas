@@ -111,6 +111,19 @@
   {$define NEED_FORMATSETTINGS}
 {$ifend}
 
+{$IFDEF CONDITIONALEXPRESSIONS}
+    {$IF CompilerVersion >= 17.0}
+      {$DEFINE HAVE_INLINE}
+    {$ENDIF}
+    {$IF CompilerVersion >= 21.0}
+      {$DEFINE HAVE_RTTI}
+    {$ENDIF}
+    {$IF CompilerVersion >= 23.0}
+      {$DEFINE NEED_FORMATSETTINGS}
+    {$ENDIF}
+{$ENDIF}
+
+
 {$OVERFLOWCHECKS OFF}
 {$RANGECHECKS OFF}
 
