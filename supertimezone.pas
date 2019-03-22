@@ -355,7 +355,7 @@ begin
   if ParseISO8601Date(ISO8601Date, st, dayofyear, week, bias, havetz, havedate) then
   begin
     if (not havetz) and GetTimeZoneInformation(st.wYear, tzi) and TzSpecificLocalTimeToSystemTime(@tzi, st, utc) then
-      bias := Trunc((SystemTimeToDateTime(st) - SystemTimeToDateTime(utc)) * MinsPerDay);
+      bias := Round((SystemTimeToDateTime(utc) - SystemTimeToDateTime(st)) * MinsPerDay);
     JavaDateTime := st.wMilliseconds + st.wSecond * 1000 + (st.wMinute + bias) * 60000 + st.wHour * 3600000;
     if havedate then
     begin
