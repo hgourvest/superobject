@@ -4444,7 +4444,7 @@ begin
   if (index < FLength) then
   begin
     if FLength = FSize then
-      Expand(FLength);
+      Expand(index);
     if Index < FLength then
       Move(FArray^[index], FArray^[index + 1],
         (FLength - index) * SizeOf(Pointer));
@@ -6114,6 +6114,7 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
     f: TRttiField;
     p: Pointer;
     v: TValue;
+    fieldObj:ISuperObject;
   begin
     Result := True;
     TValue.Make(nil, TypeInfo, Value);
@@ -6126,13 +6127,18 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
 {$ELSE}
         p := TValueData(Value).FValueData.GetReferenceToRawData;
 {$ENDIF}
-        Result := FromJson(f.FieldType.Handle, GetFieldDefault(f, obj.AsObject[GetFieldName(f)]), v);
-        if Result then
-          f.SetValue(p, v) else
-          begin
-            //Writeln(f.Name);
-            Exit;
-          end;
+        fieldObj:=obj.AsObject[GetFieldName(f)];
+        //ATRLP: 20160708: optional (no value in JSON) fields are allowed
+        if fieldObj<>nil then
+        begin
+          Result := FromJson(f.FieldType.Handle, GetFieldDefault(f, fieldObj), v);
+          if Result then
+            f.SetValue(p, v) else
+            begin
+              //Writeln(f.Name);
+              Exit;
+            end;
+        end;
       end else
       begin
         Result := False;
