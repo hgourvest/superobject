@@ -517,7 +517,7 @@ type
     function GetProcessing: boolean;
     procedure SetProcessing(value: boolean);
     function ForcePath(const path: SOString; dataType: TSuperType = stObject): ISuperObject;
-    function FormatStr(const str: SOString; BeginSep: SOChar = '%'; EndSep: SOChar = '%'): SOString;
+    function Format(const str: SOString; BeginSep: SOChar = '%'; EndSep: SOChar = '%'): SOString;
 
     function GetO(const path: SOString): ISuperObject;
     procedure PutO(const path: SOString; const Value: ISuperObject);
@@ -712,7 +712,7 @@ type
     function GetN(const path: SOString): ISuperObject;
     procedure PutN(const path: SOString; const Value: ISuperObject);
     function ForcePath(const path: SOString; dataType: TSuperType = stObject): ISuperObject;
-    function FormatStr(const str: SOString; BeginSep: SOChar = '%'; EndSep: SOChar = '%'): SOString;
+    function Format(const str: SOString; BeginSep: SOChar = '%'; EndSep: SOChar = '%'): SOString;
 
     property N[const path: SOString]: ISuperObject read GetN write PutN;
     property O[const path: SOString]: ISuperObject read GetO write PutO; default;
@@ -1048,7 +1048,7 @@ begin
         if TVarRec(Args[j]).VInterface = nil then
           Add(nil) else
           if IInterface(TVarRec(Args[j]).VInterface).QueryInterface(ISuperObject, intf) = 0 then
-            Add(TSuperObject(intf)) else
+            Add(ISuperObject(intf)) else
             Add(nil);
       vtPointer :
         if TVarRec(Args[j]).VPointer = nil then
@@ -3515,7 +3515,7 @@ begin
   Result := ParseString(PSOChar(path), False, True, Self, [foCreatePath], nil, dataType);
 end;
 
-function TSuperObject.FormatStr(const str: SOString; BeginSep: SOChar; EndSep: SOChar): SOString;
+function TSuperObject.Format(const str: SOString; BeginSep: SOChar; EndSep: SOChar): SOString;
 var
   p1, p2: PSOChar;
 begin
