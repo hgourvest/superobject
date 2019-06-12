@@ -1,6 +1,6 @@
 # SuperObject
 
-This version is compitible with Delphi and FPC complilers. Also it has Windows/Linux compatibility. Tested with FPC Version 3.0.4, 3.1.1 and last 3.3.1.
+This version is compatible with Delphi and FPC complilers. Also it has Windows/Linux compatibility. Tested with FPC Version 3.0.4, 3.1.1 and last 3.3.1.
 
 ## What is JSON ?
 
