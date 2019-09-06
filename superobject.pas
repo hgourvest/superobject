@@ -81,35 +81,29 @@
 {$ENDIF}
 
 {$DEFINE SUPER_METHOD}
-{.$DEFINE DEBUG} // track memory leack
+{.$DEFINE DEBUG} // track memory leak
 
-
-{$if defined(VER210) or defined(VER220)}
-  {$define VER210ORGREATER}
-{$ifend}
-
-{$if defined(VER230) or defined(VER240)  or defined(VER250) or
-     defined(VER260) or defined(VER270)  or defined(VER280)}
+{$if CompilerVersion > 20}
   {$define VER210ORGREATER}
   {$define VER230ORGREATER}
-{$ifend}
+{$endif}
 
 {$if defined(FPC) or defined(VER170) or defined(VER180) or defined(VER190)
   or defined(VER200) or defined(VER210ORGREATER)}
   {$DEFINE HAVE_INLINE}
-{$ifend}
+{$endif}
 
 {$if defined(VER210ORGREATER)}
   {$define HAVE_RTTI}
-{$ifend}
+{$endif}
 
 {$if defined(VER230ORGREATER)}
   {$define NEED_FORMATSETTINGS}
-{$ifend}
+{$endif}
 
 {$if defined(FPC) and defined(VER2_6)}
   {$define NEED_FORMATSETTINGS}
-{$ifend}
+{$endif}
 
 {$OVERFLOWCHECKS OFF}
 {$RANGECHECKS OFF}
@@ -625,7 +619,7 @@ type
         stMethod: (c_method: TSuperMethod);
 {$ENDIF}
       end;
-{.$ifend}
+{.$endif}
     FOString: SOString;
     function GetDataType: TSuperType;
     function GetDataPtr: Pointer;
@@ -949,18 +943,18 @@ begin
     Result := (p - Str);
   end;
 end;
-{$ifend}
+{$endif}
 
 function FloatToJson(const value: Double): SOString;
 var
   p: PSOChar;
 begin
   Result := FloatToStr(value);
-  if {$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$ifend}DecimalSeparator <> '.' then
+  if {$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$endif}DecimalSeparator <> '.' then
   begin
     p := PSOChar(Result);
     while p^ <> #0 do
-      if p^ <> SOChar({$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$ifend}DecimalSeparator) then
+      if p^ <> SOChar({$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$endif}DecimalSeparator) then
       inc(p) else
       begin
         p^ := '.';
@@ -974,11 +968,11 @@ var
   p: PSOChar;
 begin
   Result := CurrToStr(value);
-  if {$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$ifend}DecimalSeparator <> '.' then
+  if {$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$endif}DecimalSeparator <> '.' then
   begin
     p := PSOChar(Result);
     while p^ <> #0 do
-      if p^ <> SOChar({$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$ifend}DecimalSeparator) then
+      if p^ <> SOChar({$if defined(NEED_FORMATSETTINGS)}FormatSettings.{$endif}DecimalSeparator) then
       inc(p) else
       begin
         p^ := '.';
@@ -1062,7 +1056,7 @@ begin
 {$if declared(vtUnicodeString)}
       vtUnicodeString:
           Add(TSuperObject.Create(SOString(string(TVarRec(Args[j]).VUnicodeString))));
-{$ifend}
+{$endif}
     else
       assert(false);
     end;
@@ -1106,7 +1100,7 @@ begin
   {$ELSE}
     varUString:  Result := TSuperObject.Create(SOString(string(VUString)));
   {$ENDIF}
-{$ifend}
+{$endif}
   else
     raise Exception.CreateFmt('Unsuported variant data type: %d', [VType]);
   end;
@@ -6283,6 +6277,33 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
       Result := False;
   end;
 
+  procedure FromEnum;
+  var
+    TypeData: PTypeData;
+    i: Integer;
+  begin
+    TValue.Make(nil, TypeInfo, Value);
+
+    case ObjectGetType(obj) of
+    stInt, stBoolean:
+      begin
+        i := obj.AsInteger;
+        TypeData := GetTypeData(TypeInfo);
+        if TypeData.MaxValue > TypeData.MinValue then
+          Result := (i >= TypeData.MinValue) and (i <= TypeData.MaxValue) else
+          Result := (i >= TypeData.MinValue) and (i <= Int64(PCardinal(@TypeData.MaxValue)^));
+        if Result then
+          TValue.Make(@i, TypeInfo, Value);
+      end;
+    stString:
+      begin
+        Value := TValue.FromOrdinal(TypeInfo, GetEnumValue(Value.TypeInfo, obj.AsString));
+      end;
+    else
+      Result := False;
+    end;
+  end;
+
   procedure FromUnknown;
   begin
     case ObjectGetType(obj) of
@@ -6322,7 +6343,11 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
   var
     o: ISuperObject;
   begin
+    {$IFDEF VER230ORGREATER}
+    if isEqualGUID(GetTypeData(TypeInfo).Guid, soguid) then
+    {$ELSE}
     if CompareMem(@GetTypeData(TypeInfo).Guid, @soguid, SizeOf(TGUID)) then
+    {$ENDIF}
     begin
       if obj <> nil then
         TValue.Make(@obj, TypeInfo, Value) else
@@ -6344,7 +6369,8 @@ begin
       case TypeInfo.Kind of
         tkChar: FromChar;
         tkInt64: FromInt64;
-        tkEnumeration, tkInteger: FromInt(obj);
+        tkEnumeration: FromEnum;
+        tkInteger: FromInt(obj);
         tkSet: fromSet;
         tkFloat: FromFloat(obj);
         tkString, tkLString, tkUString, tkWString: FromString;
@@ -6520,6 +6546,11 @@ function TSuperRttiContext.ToJson(var value: TValue; const index: ISuperObject):
       Result := nil;
   end;
 
+  procedure ToEnum;
+  begin
+    Result := TSuperObject.Create(string( GetEnumName(Value.TypeInfo, GetEnumValue(Value.TypeInfo, Value.ToString))));
+  end;
+
   procedure ToInterface;
 {$IFNDEF VER210}
   var
@@ -6549,7 +6580,8 @@ begin
     case Value.Kind of
       tkInt64: ToInt64;
       tkChar: ToChar;
-      tkSet, tkInteger, tkEnumeration: ToInteger;
+      tkEnumeration: ToEnum;
+      tkSet, tkInteger: ToInteger;
       tkFloat: ToFloat;
       tkString, tkLString, tkUString, tkWString: ToString;
       tkClass: ToClass;
