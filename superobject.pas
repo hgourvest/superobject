@@ -78,38 +78,17 @@
 
 {$IFDEF FPC}
   {$MODE DELPHI}{$H+}
+  {$DEFINE HAVE_INLINE}
+  {$IFDEF VER2_6}
+    {$DEFINE NEED_FORMATSETTINGS}
+  {$ENDIF}
 {$ENDIF}
 
 {$DEFINE SUPER_METHOD}
 {.$DEFINE DEBUG} // track memory leak
 
-{$if defined(VER210) or defined(VER220)}
-  {$define VER210ORGREATER}
-{$endif}
-
-{$if defined(VER230) or defined(VER240)  or defined(VER250) or
-     defined(VER260) or defined(VER270)  or defined(VER280)}
-  {$define VER210ORGREATER}
-  {$define VER230ORGREATER}
-{$endif}
-
-{$if defined(FPC) or defined(VER170) or defined(VER180) or defined(VER190)
-  or defined(VER200) or defined(VER210ORGREATER)}
-  {$DEFINE HAVE_INLINE}
-{$endif}
-
-{$if defined(VER210ORGREATER)}
-  {$define HAVE_RTTI}
-{$endif}
-
-{$if defined(VER230ORGREATER)}
-  {$define NEED_FORMATSETTINGS}
-{$endif}
-
-{$if defined(FPC) and defined(VER2_6)}
-  {$define NEED_FORMATSETTINGS}
-{$endif}
-
+// The ConditionalExpressions directive was introduced in Delphi 6, which
+// corresponds to CompilerVersion = 14.0.
 {$IFDEF CONDITIONALEXPRESSIONS}
     {$IF CompilerVersion >= 17.0}
       {$DEFINE HAVE_INLINE}
@@ -118,6 +97,7 @@
       {$DEFINE HAVE_RTTI}
     {$ENDIF}
     {$IF CompilerVersion >= 23.0}
+      {$DEFINE VER230ORGREATER}
       {$DEFINE NEED_FORMATSETTINGS}
     {$ENDIF}
 {$ENDIF}
