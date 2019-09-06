@@ -1,9 +1,16 @@
 unit supertimezone;
 
+{$IFDEF FPC}
+  {$mode Delphi}
+{$ENDIF}
+
 interface
 
 uses
-  Windows, Registry, SysUtils, Math, Generics.Collections,
+  {$IFDEF MSWINDOWS}
+  Windows,
+  {$ENDIF}
+  Registry, SysUtils, Math, Generics.Collections,
   supertypes;
 
 type
@@ -27,6 +34,7 @@ type
 
     function GetName: SOString;
 
+    {$IFDEF MSWINDOWS}
     { Windows Internals }
     function TzSpecificLocalTimeToSystemTime(
       const lpTimeZoneInformation: PTimeZoneInformation;
@@ -44,6 +52,7 @@ type
 
     function DayLightCompareDate(const date: PSystemTime;
       const compareDate: PSystemTime): Integer;
+    {$ENDIF}
   private
     class constructor Init;
     class destructor Finish;
@@ -75,7 +84,9 @@ type
 
     { TZ Info }
     class function GetCurrentTimeZone: SOString;
+    {$IFDEF MSWINDOWS}
     function GetTimeZoneInformation(Year: Word; var TZI: TTimeZoneInformation): Boolean;
+    {$ENDIF}
     function GetDaylightDisabled: Boolean;
     property Name: SOString read GetName;
 
@@ -92,27 +103,29 @@ type
 { Windows 2000+ }
 function _SystemTimeToTzSpecificLocalTime(
   lpTimeZoneInformation: PTimeZoneInformation;
-  var lpUniversalTime, lpLocalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'SystemTimeToTzSpecificLocalTime' delayed;
+  var lpUniversalTime, lpLocalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'SystemTimeToTzSpecificLocalTime'{$IFNDEF FPC} delayed{$ENDIF};
 
 { Windows XP+ }
 function _TzSpecificLocalTimeToSystemTime(
   lpTimeZoneInformation: PTimeZoneInformation;
-  var lpLocalTime, lpUniversalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'TzSpecificLocalTimeToSystemTime' delayed;
+  var lpLocalTime, lpUniversalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'TzSpecificLocalTimeToSystemTime'{$IFNDEF FPC} delayed{$ENDIF};
 
 (* EXtended version - DST Aware *)
 
+{$IFNDEF FPC}
 { Windows 7+ }
 function _TzSpecificLocalTimeToSystemTimeEx(
   const lpTimeZoneInformation: PDynamicTimeZoneInformation;
-  const lpLocalTime: PSystemTime; var lpUniversalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'TzSpecificLocalTimeToSystemTimeEx' delayed;
+  const lpLocalTime: PSystemTime; var lpUniversalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'TzSpecificLocalTimeToSystemTimeEx'{$IFNDEF FPC} delayed{$ENDIF};
 
 { Windows 7+ }
 function _SystemTimeToTzSpecificLocalTimeEx(
   const lpTimeZoneInformation: PDynamicTimeZoneInformation;
-   const lpUniversalTime: PSystemTime; var lpLocalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'SystemTimeToTzSpecificLocalTimeEx' delayed;
+   const lpUniversalTime: PSystemTime; var lpLocalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'SystemTimeToTzSpecificLocalTimeEx'{$IFNDEF FPC} delayed{$ENDIF};
+{$ENDIF}
 
 { Convert Local <=> UTC for specific time-zones using the Windows API only. NOT Guaranteed to work }
-   
+
 function _ConvertLocalDateTimeToUTC(const TimeZoneName: SOString;
   const Local: TDateTime; var UTC: TDateTime): Boolean;
 
@@ -130,9 +143,11 @@ implementation
 
 function _ConvertLocalDateTimeToUTC(const TimeZoneName: SOString;
   const Local: TDateTime; var UTC: TDateTime): Boolean;
+{$IFNDEF FPC}
 var
   DTZI: TDynamicTimeZoneInformation;
   local_st, utc_st: TSystemTime;
+{$ENDIF}
 begin
   if not CheckWin32Version(6, 1) then
   begin
@@ -140,6 +155,7 @@ begin
     Exit;
   end;
 
+  {$IFNDEF FPC}
   { We work with system times }
   DateTimeToSystemTime(Local, local_st);
 
@@ -159,15 +175,18 @@ begin
   end
   else
     Result := False;
+  {$ENDIF}
 end;
 
 { Convert UTC -> Local for specific time-zones using the Windows API only. NOT Guaranteed to work }
 
 function _ConvertUTCDateTimeToLocal(const TimeZoneName: SOString;
   const UTC: TDateTime; var Local: TDateTime): Boolean;
+{$IFNDEF FPC}
 var
   DTZI: TDynamicTimeZoneInformation;
   utc_st, local_st: TSystemTime;
+{$ENDIF}
 begin
   if not CheckWin32Version(6, 1) then
   begin
@@ -175,6 +194,7 @@ begin
     Exit;
   end;
 
+  {$IFNDEF FPC}
   { We work with system times }
   DateTimeToSystemTime(UTC, utc_st);
 
@@ -194,6 +214,7 @@ begin
   end
   else
     Result := False;
+  {$ENDIF}
 end;
 {$ENDIF}
 
@@ -201,14 +222,18 @@ end;
 
 class constructor TSuperTimeZone.Init;
 begin
+  {$IFNDEF FPC}
   InitializeCriticalSection(FCacheCS);
+  {$ENDIF}
   FCache := TObjectDictionary<string, TSuperTimeZone>.Create([doOwnsValues]);
 end;
 
 class destructor TSuperTimeZone.Finish;
 begin
   FCache.Free;
+  {$IFNDEF FPC}
   DeleteCriticalSection(FCacheCS);
+  {$ENDIF}
 end;
 
 class function TSuperTimeZone.GetSuperTimeZoneInstance(
@@ -245,52 +270,68 @@ begin
 end;
 
 function TSuperTimeZone.LocalToUTC(const DelphiDateTime: TDateTime): TDateTime;
+{$IFDEF MSWINDOWS}
 var
   local, utc: TSystemTime;
   tzi: TTimeZoneInformation;
+  {$ENDIF}
 begin
+  {$IFDEF MSWINDOWS}
   DateTimeToSystemTime(DelphiDateTime, local);
   if GetTimeZoneInformation(local.wYear, tzi) and TzSpecificLocalTimeToSystemTime(@tzi, local, utc) then
     Result := SystemTimeToDateTime(utc)
   else
+  {$ENDIF}
     Result := DelphiDateTime;
 end;
 
 function TSuperTimeZone.UTCToLocal(const DelphiDateTime: TDateTime): TDateTime;
+{$IFDEF MSWINDOWS}
 var
   utc, local: TSystemTime;
   tzi: TTimeZoneInformation;
+  {$ENDIF}
 begin
+  {$IFDEF MSWINDOWS}
   DateTimeToSystemTime(DelphiDateTime, utc);
   if GetTimeZoneInformation(utc.wYear, tzi) and SystemTimeToTzSpecificLocalTime(@tzi, utc, local) then
     Result := SystemTimeToDateTime(local)
   else
+  {$ENDIF}
     Result := DelphiDateTime;
 end;
 
 function TSuperTimeZone.DelphiToJava(const DelphiDateTime: TDateTime): Int64;
+{$IFDEF MSWINDOWS}
 var
   local, utc, st: TSystemTime;
   tzi: TTimeZoneInformation;
+  {$ENDIF}
 begin
+{$IFDEF MSWINDOWS}
   DateTimeToSystemTime(DelphiDateTime, local);
   if GetTimeZoneInformation(local.wYear, tzi) and TzSpecificLocalTimeToSystemTime(@tzi, local, utc) then
     st := utc
   else
     st := local;
   Result := Round((SystemTimeToDateTime(st) - 25569) * 86400000);
+  {$ENDIF}
 end;
 
 function TSuperTimeZone.JavaToDelphi(const JavaDateTime: Int64): TDateTime;
+{$IFDEF MSWINDOWS}
 var
   utc, local: TSystemTime;
   tzi: TTimeZoneInformation;
+  {$ENDIF}
 begin
+{$IFDEF MSWINDOWS}
   DateTimeToSystemTime(25569 + (JavaDateTime / 86400000), utc);
   if GetTimeZoneInformation(utc.wYear, tzi) and SystemTimeToTzSpecificLocalTime(@tzi, utc, local) then
     Result := SystemTimeToDateTime(local)
   else
     Result := SystemTimeToDateTime(utc);
+  {$ENDIF}
 end;
 
 function TSuperTimeZone.DelphiToISO8601(
@@ -300,11 +341,14 @@ const
   TZ_Fmt  = '%s%.2d:%.2d';
 var
   local, utc: TSystemTime;
+  {$IFDEF MSWINDOWS}
   tzi: TTimeZoneInformation;
+  {$ENDIF}
   bias: TDateTime;
   h, m, d: Word;
   iso: SOString;
 begin
+{$IFDEF MSWINDOWS}
   DateTimeToSystemTime(DelphiDateTime, local);
   iso := Format(ISO_Fmt, [
     local.wYear, local.wMonth, local.wDay,
@@ -320,6 +364,7 @@ begin
     end;
   end
   else
+  {$ENDIF}
     Result := iso;
 end;
 
@@ -340,18 +385,20 @@ end;
 
 function TSuperTimeZone.ISO8601ToJava(const ISO8601Date: SOString;
   var JavaDateTime: Int64): Boolean;
+{$IFDEF MSWINDOWS}
 var
   st: TSystemTime;
   dayofyear: Integer;
   week: Word;
   bias: Integer;
   havetz, havedate: Boolean;
-
   tzi: TTimeZoneInformation;
   utc: TSystemTime;
   m: Word;
   DayTable: PDayTable;
+  {$ENDIF}
 begin
+{$IFDEF MSWINDOWS}
   if ParseISO8601Date(ISO8601Date, st, dayofyear, week, bias, havetz, havedate) then
   begin
     if (not havetz) and GetTimeZoneInformation(st.wYear, tzi) and TzSpecificLocalTimeToSystemTime(@tzi, st, utc) then
@@ -378,6 +425,7 @@ begin
     Result := True;
   end
   else
+  {$ENDIF}
     Result := False;
 end;
 
@@ -443,6 +491,7 @@ begin
   end;
 end;
 
+{$IFDEF MSWINDOWS}
 function TSuperTimeZone.GetTimeZoneInformation(Year: Word;
   var TZI: TTimeZoneInformation): Boolean;
 type
@@ -750,6 +799,7 @@ begin
   PInt64(@ft)^ := llTime;
   Result := FileTimeToSystemTime(ft, lpLocalTime);
 end;
+{$ENDIF}
 
 class function TSuperTimeZone.ParseISO8601Date(const ISO8601Date: SOString;
   var st: TSystemTime; var dayofyear: Integer; var week: Word;
@@ -770,12 +820,28 @@ type
   TState = (stStart, stYear, stMonth, stWeek, stWeekDay, stDay, stDayOfYear,
     stHour, stMin, stSec, stMs, stUTC, stGMTH, stGMTM, stGMTend, stEnd);
   TPerhaps = (yes, no, perhaps);
+type
+  TSystemTimeInt = record
+    Year: Word;
+    Month: Word;
+    DayOfWeek: Word;
+    Day: Word;
+    Hour: Word;
+    Minute: Word;
+    Second: Word;
+    Millisecond: Word;
+  end;
 var
   p: PSOChar;
   sep: TPerhaps;
   state: TState;
   pos, v: Word;
   inctz: Boolean;
+  {$IFDEF MSWINDOWS}
+  st1: TSystemTimeInt absolute st;
+  {$ELSE MSWINDOWS}
+  st1: TSystemTime absolute st;
+  {$ENDIF MSWINDOWS}
 label
   error;
 begin
@@ -811,7 +877,7 @@ begin
       stYear:
         case pos of
           0 .. 1, 3:
-            if get(st.wYear, p^) then
+            if get(st1.Year, p^) then
             begin
               Inc(pos);
               Inc(p);
@@ -822,15 +888,15 @@ begin
             case p^ of
               '0' .. '9':
                 begin
-                  st.wYear := st.wYear * 10 + Ord(p^) - Ord('0');
+                  st1.Year := st1.Year * 10 + Ord(p^) - Ord('0');
                   Inc(pos);
                   Inc(p);
                 end;
               ':':
                 begin
                   havedate := False;
-                  st.wHour := st.wYear;
-                  st.wYear := 0;
+                  st1.Hour := st1.Year;
+                  st1.Year := 0;
                   Inc(p);
                   pos := 0;
                   state := stMin;
@@ -865,13 +931,13 @@ begin
                   state := stHour;
                   pos := 0;
                   Inc(p);
-                  st.wMonth := 1;
-                  st.wDay := 1;
+                  st1.Month := 1;
+                  st1.Day := 1;
                 end;
               #0:
                 begin
-                  st.wMonth := 1;
-                  st.wDay := 1;
+                  st1.Month := 1;
+                  st1.Day := 1;
                   state := stEnd;
                 end;
             else
@@ -884,7 +950,7 @@ begin
             case p^ of
               '0' .. '9':
                 begin
-                  st.wMonth := Ord(p^) - Ord('0');
+                  st1.Month := Ord(p^) - Ord('0');
                   Inc(pos);
                   Inc(p);
                 end;
@@ -898,7 +964,7 @@ begin
               goto error;
             end;
           1:
-            if get(st.wMonth, p^) then
+            if get(st1.Month, p^) then
             begin
               Inc(pos);
               Inc(p);
@@ -926,8 +992,8 @@ begin
                 end
                 else
                 begin
-                  dayofyear := st.wMonth * 10 + Ord(p^) - Ord('0');
-                  st.wMonth := 0;
+                  dayofyear := st1.Month * 10 + Ord(p^) - Ord('0');
+                  st1.Month := 0;
                   Inc(p);
                   pos := 3;
                   state := stDayOfYear;
@@ -937,11 +1003,11 @@ begin
                   state := stHour;
                   pos := 0;
                   Inc(p);
-                  st.wDay := 1;
+                  st1.Day := 1;
                 end;
               #0:
                 begin
-                  st.wDay := 1;
+                  st1.Day := 1;
                   state := stEnd;
                 end;
             else
@@ -951,7 +1017,7 @@ begin
       stDay:
         case pos of
           0:
-            if get(st.wDay, p^) then
+            if get(st1.Day, p^) then
             begin
               Inc(pos);
               Inc(p);
@@ -959,16 +1025,16 @@ begin
             else
               goto error;
           1:
-            if get(st.wDay, p^) then
+            if get(st1.Day, p^) then
             begin
               Inc(pos);
               Inc(p);
             end
             else if sep in [no, perhaps] then
             begin
-              dayofyear := st.wMonth * 10 + st.wDay;
-              st.wDay := 0;
-              st.wMonth := 0;
+              dayofyear := st1.Month * 10 + st1.Day;
+              st1.Day := 0;
+              st1.Month := 0;
               state := stDayOfYear;
             end
             else
@@ -1041,12 +1107,12 @@ begin
         end;
       stWeekDay:
         begin
-          if (week > 0) and get(st.wDayOfWeek, p^) then
+          if (week > 0) and get(st1.DayOfWeek, p^) then
           begin
             Inc(p);
-            v := st.wYear - 1;
+            v := st1.Year - 1;
             v := ((v * 365) + (v div 4) - (v div 100) + (v div 400)) mod 7 + 1;
-            dayofyear := (st.wDayOfWeek - v) + ((week) * 7) + 1;
+            dayofyear := (st1.DayOfWeek - v) + ((week) * 7) + 1;
             if v <= 4 then
               Dec(dayofyear, 7);
             case p^ of
@@ -1070,7 +1136,7 @@ begin
           0:
             case p^ of
               '0' .. '9':
-                if get(st.wHour, p^) then
+                if get(st1.Hour, p^) then
                 begin
                   Inc(pos);
                   Inc(p);
@@ -1086,7 +1152,7 @@ begin
               goto error;
             end;
           1:
-            if get(st.wHour, p^) then
+            if get(st1.Hour, p^) then
             begin
               Inc(pos);
               Inc(p);
@@ -1156,7 +1222,7 @@ begin
           0:
             case p^ of
               '0' .. '9':
-                if get(st.wMinute, p^) then
+                if get(st1.Minute, p^) then
                 begin
                   Inc(pos);
                   Inc(p);
@@ -1172,7 +1238,7 @@ begin
               goto error;
             end;
           1:
-            if get(st.wMinute, p^) then
+            if get(st1.Minute, p^) then
             begin
               Inc(pos);
               Inc(p);
@@ -1239,7 +1305,7 @@ begin
       stSec:
         case pos of
           0 .. 1:
-            if get(st.wSecond, p^) then
+            if get(st1.Second, p^) then
             begin
               Inc(pos);
               Inc(p);
@@ -1289,7 +1355,7 @@ begin
         case p^ of
           '0' .. '9':
             begin
-              st.wMilliseconds := st.wMilliseconds * 10 + Ord(p^) - Ord('0');
+              st1.MilliSecond := st1.MilliSecond * 10 + Ord(p^) - Ord('0');
               Inc(p);
             end;
           '+':
@@ -1408,8 +1474,8 @@ begin
         end;
     end;
 
-  if (st.wHour >= 24) or (st.wMinute >= 60) or (st.wSecond >= 60) or
-    (st.wMilliseconds >= 1000) or (week > 53) then
+  if (st1.Hour >= 24) or (st1.Minute >= 60) or (st1.Second >= 60) or
+    (st1.MilliSecond >= 1000) or (week > 53) then
     goto error;
 
   Result := True;

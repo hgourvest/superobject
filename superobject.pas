@@ -77,7 +77,7 @@
  *)
 
 {$IFDEF FPC}
-  {$MODE OBJFPC}{$H+}
+  {$MODE DELPHI}{$H+}
 {$ENDIF}
 
 {$DEFINE SUPER_METHOD}
@@ -112,7 +112,7 @@ unit superobject;
 
 interface
 uses
-  Classes, supertypes
+  Classes, supertypes, Types
 {$IFDEF HAVE_RTTI}
   ,Generics.Collections, RTTI, TypInfo
 {$ENDIF}
@@ -630,8 +630,8 @@ type
 {$ELSE}
     function QueryInterface(const IID: TGUID; out Obj): HResult; virtual; stdcall;
 {$ENDIF}
-    function _AddRef: Integer; virtual; stdcall;
-    function _Release: Integer; virtual; stdcall;
+    function _AddRef: Integer; virtual; {$IFDEF UNIX}cdecl{$ELSE}stdcall{$ENDIF};
+    function _Release: Integer; virtual; {$IFDEF UNIX}cdecl{$ELSE}stdcall{$ENDIF};
 
     function GetO(const path: SOString): ISuperObject;
     procedure PutO(const path: SOString; const Value: ISuperObject);
@@ -809,6 +809,7 @@ function SO(const value: Variant): ISuperObject; overload;
 function SO(const Args: array of const): ISuperObject; overload;
 
 function SA(const Args: array of const): ISuperObject; overload;
+function SA(const AStrings: TStringDynArray): ISuperObject; overload;
 
 function TryObjectToDate(const obj: ISuperObject; var dt: TDateTime): Boolean;
 function UUIDToString(const g: TGUID): SOString;
@@ -831,7 +832,11 @@ function SOInvoke(const obj: TValue; const method: string; const params: string;
 
 implementation
 uses
-  sysutils, Windows, superdate
+  sysutils,
+  {$IFDEF MSWINDOWS}
+  Windows,
+  {$ENDIF}
+  superdate
 {$IFDEF FPC}
   ,sockets
 {$ELSE}
@@ -1005,7 +1010,7 @@ begin
   end;
 end;
 
-function SO(const s: SOString): ISuperObject; overload;
+function SO(const s: SOString = '{}'): ISuperObject;
 begin
   Result := TSuperObject.ParseString(PSOChar(s), False);
 end;
@@ -1060,6 +1065,15 @@ begin
     else
       assert(false);
     end;
+end;
+
+function SA(const AStrings: TStringDynArray): ISuperObject; overload;
+var
+  i: integer;
+begin
+  Result := TSuperObject.Create(stArray);
+  for i := 0 to High(AStrings) do
+   Result.AsArray.Add(TSuperObject.Create(AStrings[i]));
 end;
 
 function SO(const Args: array of const): ISuperObject; overload;
@@ -4235,12 +4249,12 @@ begin
   end;
 end;
 
-function TSuperObject._AddRef: Integer; stdcall;
+function TSuperObject._AddRef: Integer;
 begin
   Result := InterlockedIncrement(FRefCount);
 end;
 
-function TSuperObject._Release: Integer; stdcall;
+function TSuperObject._Release: Integer;
 begin
   Result := InterlockedDecrement(FRefCount);
   if Result = 0 then
@@ -6735,5 +6749,3 @@ finalization
   Assert(debugcount = 0, 'Memory leak');
 {$ENDIF}
 end.
-
-
