@@ -83,7 +83,12 @@
 {$DEFINE SUPER_METHOD}
 {.$DEFINE DEBUG} // track memory leak
 
-{$if CompilerVersion > 20}
+{$if defined(VER210) or defined(VER220)}
+  {$define VER210ORGREATER}
+{$endif}
+
+{$if defined(VER230) or defined(VER240)  or defined(VER250) or
+     defined(VER260) or defined(VER270)  or defined(VER280)}
   {$define VER210ORGREATER}
   {$define VER230ORGREATER}
 {$endif}
@@ -104,6 +109,18 @@
 {$if defined(FPC) and defined(VER2_6)}
   {$define NEED_FORMATSETTINGS}
 {$endif}
+
+{$IFDEF CONDITIONALEXPRESSIONS}
+    {$IF CompilerVersion >= 17.0}
+      {$DEFINE HAVE_INLINE}
+    {$ENDIF}
+    {$IF CompilerVersion >= 21.0}
+      {$DEFINE HAVE_RTTI}
+    {$ENDIF}
+    {$IF CompilerVersion >= 23.0}
+      {$DEFINE NEED_FORMATSETTINGS}
+    {$ENDIF}
+{$ENDIF}
 
 {$OVERFLOWCHECKS OFF}
 {$RANGECHECKS OFF}
