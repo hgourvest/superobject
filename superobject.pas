@@ -19,6 +19,8 @@
  *   http://oss.metaparadigm.com/json-c/
  *
  *  CHANGES:
+ *  v1.3
+ *   + Fixed too many bugs to list here.
  *  v1.2
  *   + support of currency data type
  *   + right trim unquoted string
