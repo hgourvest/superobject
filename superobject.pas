@@ -553,7 +553,7 @@ type
 {$IFDEF SUPER_METHOD}
     function AsMethod: TSuperMethod;
 {$ENDIF}
-    function AsJSon(indent: boolean = false; escape: boolean = true): SOString;
+    function AsJson(indent: boolean = false; escape: boolean = true): SOString;
 
     procedure Clear(all: boolean = false);
     procedure Pack(all: boolean = false);
@@ -819,9 +819,9 @@ function StringToUUID(const str: SOString; var g: TGUID): Boolean;
 type
   TSuperInvokeResult = (
     irSuccess,
-    irMethothodError,  // method don't exist
-    irParamError,     // invalid parametters
-    irError            // other error
+    irMethodError,  // method don't exist
+    irParamError,   // invalid parametters
+    irError         // other error
   );
 
 function TrySOInvoke(var ctx: TSuperRttiContext; const obj: TValue; const method: string; const params: ISuperObject; var Return: ISuperObject): TSuperInvokeResult; overload;
@@ -1477,7 +1477,8 @@ begin
     begin
       o := SO(obj.AsString);
       if not ObjectIsType(o, stString) then
-        Result := serialfromboolean(ctx, SO(obj.AsString), Value) else
+        Result := serialfromboolean(ctx, SO(obj.AsString), Value)
+      else
         Result := False;
     end;
   else
@@ -1502,12 +1503,13 @@ begin
       begin
         TValueData(Value).FAsDouble := JavaToDelphiDateTime(i);
         Result := True;
-      end else
-      if TryStrToDateTime(obj.AsString, dt) then
+      end
+      else if TryStrToDateTime(obj.AsString, dt) then
       begin
         TValueData(Value).FAsDouble := dt;
         Result := True;
-      end else
+      end
+      else
         Result := False;
     end;
   else
@@ -1523,7 +1525,8 @@ begin
         FillChar(Value.GetReferenceToRawData^, SizeOf(TGUID), 0);
         Result := True;
       end;
-    stString: Result := UuidFromString(PSOChar(obj.AsString), Value.GetReferenceToRawData);
+    stString:
+      Result := UuidFromString(PSOChar(obj.AsString), Value.GetReferenceToRawData);
   else
     Result := False;
   end;
@@ -1612,7 +1615,7 @@ begin
       begin
         t := TRttiInstanceType(ctx.Context.GetType(obj.AsObject.ClassType));
         m := t.GetMethod(method);
-        if m = nil then Exit(irMethothodError);
+        if m = nil then Exit(irMethodError);
         ps := m.GetParameters;
         SetLength(a, Length(ps));
         if not GetParams then Exit(irParamError);
@@ -1632,7 +1635,7 @@ begin
       begin
         t := TRttiInstanceType(ctx.Context.GetType(obj.AsClass));
         m := t.GetMethod(method);
-        if m = nil then Exit(irMethothodError);
+        if m = nil then Exit(irMethodError);
         ps := m.GetParameters;
         SetLength(a, Length(ps));
 
@@ -2152,13 +2155,13 @@ begin
     Result := nil;
 end;
 
-function TSuperObject.AsJSon(indent, escape: boolean): SOString;
+function TSuperObject.AsJson(indent, escape: boolean): SOString;
 var
   pb: TSuperWriterString;
 begin
   pb := TSuperWriterString.Create;
   try
-    if(Write(pb, indent, escape, 0) < 0) then
+    if Write(pb, indent, escape, 0) < 0 then
     begin
       Result := '';
       Exit;
@@ -2240,7 +2243,7 @@ class function TSuperObject.ParseFile(const FileName: string; strict: Boolean;
 var
   stream: TFileStream;
 begin
-  stream := TFileStream.Create(FileName, fmOpenRead, fmShareDenyWrite);
+  stream := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
   try
     Result := ParseStream(stream, strict, partial, this, options, put, dt);
   finally
@@ -3404,10 +3407,13 @@ begin
       begin
         Result := TSuperObject.Create(stObject);
         if ObjectFindFirst(self, ite) then
-        with Result.AsObject do
-        repeat
-          PutO(ite.key, ite.val.Clone);
-        until not ObjectFindNext(ite);
+          with Result.AsObject do
+            repeat
+              if ite.val = nil then
+                PutO(ite.key, nil)
+              else
+                PutO(ite.key, ite.val.Clone);
+            until not ObjectFindNext(ite);
         ObjectFindClose(ite);
       end;
     stArray:
@@ -3415,8 +3421,8 @@ begin
         Result := TSuperObject.Create(stArray);
         arr := AsArray;
         with Result.AsArray do
-        for j := 0 to arr.Length - 1 do
-          Add(arr.GetO(j).Clone);
+          for j := 0 to arr.Length - 1 do
+            Add(arr.GetO(j).Clone);
       end;
     stNull:
       Result := TSuperObject.Create(stNull);
@@ -5924,14 +5930,24 @@ end;
 function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject;
   var Value: TValue): Boolean;
 
+  procedure Error(const Context: string; const Obj: ISuperObject);
+  begin
+  {$IFNDEF RELEASE}
+     raise Exception.Create(Context + ' Marshalling Error' + #13#10 + Obj.AsString);
+  {$ELSE}
+     Result := False;
+  {$ENDIF}
+  end;
+
   procedure FromChar;
   begin
     if ObjectIsType(obj, stString) and (Length(obj.AsString) = 1) then
-      begin
-        Value := string(AnsiString(obj.AsString)[1]);
-        Result := True;
-      end else
-        Result := False;
+    begin
+      Value := string(AnsiString(obj.AsString)[1]);
+      Result := True;
+    end
+    else
+      Error('Char', obj);
   end;
 
   procedure FromWideChar;
@@ -5940,8 +5956,9 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
     begin
       Value := obj.AsString[1];
       Result := True;
-    end else
-      Result := False;
+    end
+    else
+      Error('WideChar', obj);
   end;
 
   procedure FromInt64;
@@ -5962,11 +5979,12 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
           TValue.Make(nil, TypeInfo, Value);
           TValueData(Value).FAsSInt64 := i;
           Result := True;
-        end else
-          Result := False;
+        end
+        else
+          Error('Int64 (from string)', obj);
       end;
     else
-      Result := False;
+      Error('Int64', obj);
     end;
   end;
 
@@ -5982,24 +6000,28 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
         i := obj.AsInteger;
         TypeData := GetTypeData(TypeInfo);
         if TypeData.MaxValue > TypeData.MinValue then
-          Result := (i >= TypeData.MinValue) and (i <= TypeData.MaxValue) else
+          Result := (i >= TypeData.MinValue) and (i <= TypeData.MaxValue)
+        else
           Result := (i >= TypeData.MinValue) and (i <= Int64(PCardinal(@TypeData.MaxValue)^));
         if Result then
-          TValue.Make(@i, TypeInfo, Value);
+          TValue.Make(@i, TypeInfo, Value)
+        else
+          Error('Int (from int or boolean)', obj);
       end;
     stString:
       begin
         o := SO(obj.AsString);
         if not ObjectIsType(o, stString) then
-          FromInt(o) else
-          Result := False;
+          FromInt(o)
+        else
+          Error('Int (from string)', obj);
       end;
     else
-      Result := False;
+      Error('Int', obj);
     end;
   end;
 
-  procedure fromSet;
+  procedure FromSet;
   var
     i: Integer;
   begin
@@ -6017,11 +6039,12 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
           TValue.Make(nil, TypeInfo, Value);
           TValueData(Value).FAsSLong := i;
           Result := True;
-        end else
-          Result := False;
+        end
+        else
+          Error('Set (from string)', obj);
       end;
     else
-      Result := False;
+      Error('Set', obj);
     end;
   end;
 
@@ -6046,11 +6069,12 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
       begin
         o := SO(obj.AsString);
         if not ObjectIsType(o, stString) then
-          FromFloat(o) else
-          Result := False;
+          FromFloat(o)
+        else
+          Error('Float (from string)', obj);
       end
     else
-       Result := False;
+       Error('Float', obj);
     end;
   end;
 
@@ -6058,7 +6082,7 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
   begin
     case ObjectGetType(obj) of
     stObject, stArray:
-      Result := False;
+      Error('String (from object or array)', obj);
     stnull:
       begin
         Value := '';
@@ -6081,14 +6105,19 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
           Result := True;
           if Value.Kind <> tkClass then
             Value := GetTypeData(TypeInfo).ClassType.Create;
+
           for f in Context.GetType(Value.AsObject.ClassType).GetFields do
             if f.FieldType <> nil then
             begin
               v := TValue.Empty;
               Result := FromJson(f.FieldType.Handle, GetFieldDefault(f, obj.AsObject[GetFieldName(f)]), v);
               if Result then
-                f.SetValue(Value.AsObject, v) else
-                Exit;
+                f.SetValue(Value.AsObject, v)
+              else
+              begin
+                Error('Class (from object)', obj);
+                Break;
+              end;
             end;
         end;
       stNull:
@@ -6099,7 +6128,7 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
     else
       // error
       Value := nil;
-      Result := False;
+      Error('Class', obj);
     end;
   end;
 
@@ -6120,17 +6149,28 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
 {$ELSE}
         p := TValueData(Value).FValueData.GetReferenceToRawData;
 {$ENDIF}
-        Result := FromJson(f.FieldType.Handle, GetFieldDefault(f, obj.AsObject[GetFieldName(f)]), v);
-        if Result then
-          f.SetValue(p, v) else
+        try
+          Result := FromJson(f.FieldType.Handle, GetFieldDefault(f, obj.AsObject[GetFieldName(f)]), v);
+        except
+          on E: Exception do
           begin
-            //Writeln(f.Name);
-            Exit;
+            Error(Format('Record.(%s/%s) : %s', [f.Name, GetFieldName(f), E.Message]), obj);
+            Result := False;
           end;
-      end else
+        end;
+
+        if Result then
+          f.SetValue(p, v)
+        else
+        begin
+          Error(Format('Record (from object, field=%s)', [GetFieldName(f)]), obj);
+          Break;
+        end;
+      end
+      else
       begin
-        Result := False;
-        Exit;
+        //Error('Record', obj);
+        Break;
       end;
     end;
   end;
@@ -6153,7 +6193,8 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
         pb := p;
         typ := GetTypeData(TypeInfo);
         if typ.elType <> nil then
-          el := typ.elType^ else
+          el := typ.elType^
+        else
           el := typ.elType2^;
 
         Result := True;
@@ -6161,13 +6202,17 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
         begin
           Result := FromJson(el, obj.AsArray[i], val);
           if not Result then
+          begin
+            Error('DynArray (from array)', obj);
             Break;
+          end;
           val.ExtractRawData(pb);
           val := TValue.Empty;
           Inc(pb, typ.elSize);
         end;
         if Result then
-          TValue.MakeWithoutCopy(@p, TypeInfo, Value) else
+          TValue.MakeWithoutCopy(@p, TypeInfo, Value)
+        else
           DynArrayClear(p, TypeInfo);
       end;
     stNull:
@@ -6182,7 +6227,8 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
       pb := p;
       typ := GetTypeData(TypeInfo);
       if typ.elType <> nil then
-        el := typ.elType^ else
+        el := typ.elType^
+      else
         el := typ.elType2^;
 
       Result := FromJson(el, obj, val);
@@ -6190,8 +6236,12 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
       val := TValue.Empty;
 
       if Result then
-        TValue.MakeWithoutCopy(@p, TypeInfo, Value) else
+        TValue.MakeWithoutCopy(@p, TypeInfo, Value)
+      else
+      begin
         DynArrayClear(p, TypeInfo);
+        Error('DynArray', obj);
+      end;
     end;
   end;
 
@@ -6199,6 +6249,7 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
   var
     ArrayData: PArrayTypeData;
     idx: Integer;
+
     function ProcessDim(dim: Byte; const o: ISuperobject): Boolean;
     var
       i: Integer;
@@ -6210,6 +6261,7 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
         a := @GetTypeData(ArrayData.Dims[dim-1]^).ArrayData;
         if (a.MaxValue - a.MinValue + 1) <> o.AsArray.Length then
         begin
+          Error('Array (bad dimension)', obj);
           Result := False;
           Exit;
         end;
@@ -6219,7 +6271,10 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
           begin
             Result := FromJson(ArrayData.ElType^, o.AsArray[i], v);
             if not Result then
+            begin
+              Error('ArrayElement[' + IntToStr(i) + ']', obj);
               Exit;
+            end;
             Value.SetArrayElement(idx, v);
             inc(idx);
           end
@@ -6228,11 +6283,19 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
           begin
             Result := ProcessDim(dim + 1, o.AsArray[i]);
             if not Result then
+            begin
+              Error('ArrayDim[' + IntToStr(i) + ']', obj);
               Exit;
+            end;
           end;
-      end else
+      end
+      else
+      begin
+        Error('Array', obj);
         Result := False;
+      end;
     end;
+
   var
     i: Integer;
     v: TValue;
@@ -6249,15 +6312,22 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
         begin
           Result := FromJson(ArrayData.ElType^, obj.AsArray[i], v);
           if not Result then
-            Exit;
+          begin
+            Error('Array (from array)', obj);
+            Break;
+          end;
           Value.SetArrayElement(idx, v);
           v := TValue.Empty;
           inc(idx);
         end;
-      end else
-        Result := False;
-    end else
-      Result := ProcessDim(1, obj);
+      end
+      else
+        Error('Array', obj);
+    end
+    else if not ProcessDim(1, obj) then
+      Error('Array (from ProcessDim)', obj)
+    else
+      Result := True;
   end;
 
   procedure FromClassRef;
@@ -6271,10 +6341,12 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
       begin
         Value := TRttiInstanceType(r).MetaclassType;
         Result := True;
-      end else
-        Result := False;
-    end else
-      Result := False;
+      end
+      else
+        Error('ClassRef (from string)', obj);
+    end
+    else
+      Error('ClassRef', obj);
   end;
 
   procedure FromEnum;
@@ -6334,14 +6406,16 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
         end
     else
       Value := nil;
-      Result := False;
+      Error('Unknown', obj);
     end;
   end;
 
   procedure FromInterface;
-  const soguid: TGuid = '{4B86A9E3-E094-4E5A-954A-69048B7B6327}';
+  const
+    SOGUID: TGUID = '{4B86A9E3-E094-4E5A-954A-69048B7B6327}';
   var
     o: ISuperObject;
+    g: TGUID;
   begin
     {$IFDEF VER230ORGREATER}
     if isEqualGUID(GetTypeData(TypeInfo).Guid, soguid) then
@@ -6350,19 +6424,20 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
     {$ENDIF}
     begin
       if obj <> nil then
-        TValue.Make(@obj, TypeInfo, Value) else
-        begin
-          o := TSuperObject.Create(stNull);
-          TValue.Make(@o, TypeInfo, Value);
-        end;
+        TValue.Make(@obj, TypeInfo, Value)
+      else
+      begin
+        o := TSuperObject.Create(stNull);
+        TValue.Make(@o, TypeInfo, Value);
+      end;
       Result := True;
-    end else
-      Result := False;
+    end
+    else
+      Error('Interface', obj);
   end;
 var
   Serial: TSerialFromJson;
 begin
-
   if TypeInfo <> nil then
   begin
     if not SerialFromJson.TryGetValue(TypeInfo, Serial) then
@@ -6371,27 +6446,32 @@ begin
         tkInt64: FromInt64;
         tkEnumeration: FromEnum;
         tkInteger: FromInt(obj);
-        tkSet: fromSet;
+        tkSet: FromSet;
         tkFloat: FromFloat(obj);
         tkString, tkLString, tkUString, tkWString: FromString;
         tkClass: FromClass;
         tkMethod: ;
-        tkWChar: FromWideChar;
-        tkRecord: FromRecord;
+        tkWChar:     FromWideChar;
+        tkRecord:    FromRecord;
         tkPointer: ;
         tkInterface: FromInterface;
-        tkArray: FromArray;
-        tkDynArray: FromDynArray;
-        tkClassRef: FromClassRef;
+        tkArray:     FromArray;
+        tkDynArray:  FromDynArray;
+        tkClassRef:  FromClassRef;
       else
         FromUnknown
-      end else
-      begin
-        TValue.Make(nil, TypeInfo, Value);
-        Result := Serial(Self, obj, Value);
-      end;
-  end else
-    Result := False;
+      end
+    else
+    begin
+      TValue.Make(nil, TypeInfo, Value);
+      if not Serial(Self, obj, Value) then
+        Error('FromSerial', obj)
+      else
+        Result := True;
+    end;
+  end
+  else
+    Error('FromJson', obj);
 end;
 
 function TSuperRttiContext.ToJson(var value: TValue; const index: ISuperObject): ISuperObject;
@@ -6655,4 +6735,5 @@ finalization
   Assert(debugcount = 0, 'Memory leak');
 {$ENDIF}
 end.
+
 

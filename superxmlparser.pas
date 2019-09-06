@@ -33,8 +33,9 @@ function XMLParseFile(const FileName: string; pack: Boolean = false; onpi: TOnPr
 
 {$IFDEF UNICODE}
 type
-  TXMLWriteMethod = reference to procedure(const data: string);
-procedure XMLWrite(const node: ISuperObject; const method: TXMLWriteMethod);
+  TXMLWriteMethod = reference to procedure(const data: string; level: Integer);
+
+procedure XMLWrite(const node: ISuperObject; const method: TXMLWriteMethod; level: Integer = 0);
 {$ENDIF}
 
 const
@@ -110,19 +111,23 @@ type
   TSuperXMLEncoding = ({$IFNDEF UNIX}xnANSI,{$ENDIF} xnUTF8, xnUnicode);
 
 {$IFDEF UNICODE}
-  procedure XMLWrite(const node: ISuperObject; const method: TXMLWriteMethod);
+  procedure XMLWrite(const node: ISuperObject; const method: TXMLWriteMethod;
+    level: Integer);
+
      procedure Escape(const str: string);
-    var
+     var
       p1, p2: PChar;
+
       procedure push(const data: string);
       begin
         if p2 > p1 then
-          method(Copy(p1, 0, p2-p1));
+          method(Copy(p1, 0, p2-p1), -1);
         Inc(p2);
         p1 := p2;
         if data <> '' then
-          method(data);
+          method(data, -1);
       end;
+
     begin
       p1 := PChar(str);
       p2 := p1;
@@ -145,25 +150,37 @@ type
   var
     o: ISuperObject;
     ent: TSuperAvlEntry;
+    has_child_nodes: Boolean;
   begin
-    method('<' + node.S[xmlname]);
+    method('<' + node.S[xmlname], level);
+
     if ObjectIsType(node[xmlattributes], stObject) then
       for ent in node[xmlattributes].AsObject do
       begin
-        method(' ' + ent.Name + '="');
+        method(' ' + ent.Name + '="', -1);
         Escape(ent.Value.AsString);
-        method('"');
+        method('"', -1);
       end;
+
     if ObjectIsType(node[xmlchildren], stArray) then
     begin
-      method('>');
+      method('>', -1);
+      has_child_nodes := False;
       for o in node[xmlchildren] do
         if ObjectIsType(o, stString) then
-          Escape(o.AsString) else
-          XMLWrite(o, method);
-      method('</' + node.S[xmlname] + '>');
-    end else
-      method('/>');
+          Escape(o.AsString)
+        else
+        begin
+          XMLWrite(o, method, level + 1);
+          has_child_nodes := True;
+        end;
+      if has_child_nodes then
+        method('</' + node.S[xmlname] + '>', level)
+      else
+        method('</' + node.S[xmlname] + '>', -1)
+    end
+    else
+      method('/>', -1);
   end;
 {$ENDIF}
 
@@ -1156,7 +1173,7 @@ function XMLParseFile(const FileName: string; pack: Boolean; onpi: TOnProcessing
 var
   stream: TFileStream;
 begin
-  stream := TFileStream.Create(FileName, fmOpenRead, fmShareDenyWrite);
+  stream := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
   try
     Result := XMLParseStream(stream, pack, onpi);
   finally

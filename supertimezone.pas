@@ -13,8 +13,18 @@ type
       TZ_TZI_KEY = '\SYSTEM\CurrentControlSet\Control\TimeZoneInformation'; { Vista and + }
       TZ_KEY     = '\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones\';
       TZ_KEYNAME = 'TimeZoneKeyName';
+  private type
+    TExpirable<T> = record
+      Timestamp: TDateTime;
+      Data: T;
+      function IsValid: Boolean;
+      class function Box(Data: T): TExpirable<T>; static;
+    end;
   private
     FName: SOString;
+    FDaylightDisabled: TExpirable<Boolean>;
+    FCacheTZI: TDictionary<Word, TExpirable<TTimeZoneInformation>>;
+
     function GetName: SOString;
 
     { Windows Internals }
@@ -43,6 +53,7 @@ type
     class function GetLocalSuperTimeZoneInstance: TSuperTimeZone; static;
   public
     constructor Create(const TimeZoneName: SOString = '');
+    destructor Destroy; override;
 
     { ISO8601 formatted date Parser }
     class function ParseISO8601Date(const ISO8601Date: SOString;
@@ -224,6 +235,13 @@ constructor TSuperTimeZone.Create(const TimeZoneName: SOString);
 begin
   inherited Create;
   FName := TimeZoneName;
+  FDaylightDisabled := TExpirable<Boolean>.Box(GetDaylightDisabled);
+  FCacheTZI := TDictionary<Word, TExpirable<TTimeZoneInformation>>.Create;
+end;
+
+destructor TSuperTimeZone.Destroy;
+begin
+  FCacheTZI.Free;
 end;
 
 function TSuperTimeZone.LocalToUTC(const DelphiDateTime: TDateTime): TDateTime;
@@ -337,7 +355,7 @@ begin
   if ParseISO8601Date(ISO8601Date, st, dayofyear, week, bias, havetz, havedate) then
   begin
     if (not havetz) and GetTimeZoneInformation(st.wYear, tzi) and TzSpecificLocalTimeToSystemTime(@tzi, st, utc) then
-      bias := Trunc((SystemTimeToDateTime(st) - SystemTimeToDateTime(utc)) * MinsPerDay);
+      bias := Round((SystemTimeToDateTime(utc) - SystemTimeToDateTime(st)) * MinsPerDay);
     JavaDateTime := st.wMilliseconds + st.wSecond * 1000 + (st.wMinute + bias) * 60000 + st.wHour * 3600000;
     if havedate then
     begin
@@ -365,10 +383,9 @@ end;
 
 function TSuperTimeZone.GetName: SOString;
 begin
-  if FName <> '' then
-    Result := FName
-  else
-    Result := GetCurrentTimeZone;
+  if FName = '' then
+    FName := GetCurrentTimeZone;
+  Result := FName;
 end;
 
 class function TSuperTimeZone.GetCurrentTimeZone: SOString;
@@ -406,6 +423,9 @@ function TSuperTimeZone.GetDaylightDisabled: Boolean;
 var
   KeyName: SOString;
 begin
+  if FDaylightDisabled.IsValid then
+    Exit(FDaylightDisabled.Data);
+
   Result := False;
   KeyName := TZ_KEY + Name;
   with TRegistry.Create do
@@ -417,6 +437,7 @@ begin
         Result := ReadBool('IsObsolete');
       CloseKey;
     end;
+    FDaylightDisabled := TExpirable<Boolean>.Box(Result);
   finally
     Free;
   end;
@@ -437,7 +458,14 @@ var
   KeyName: SOString;
   FirstYear, LastYear, ChangeYear: Word;
   Retry: Boolean;
+  CachedData: TExpirable<TTimeZoneInformation>;
 begin
+  if FCacheTZI.TryGetValue(Year, CachedData) and CachedData.IsValid then
+  begin
+    TZI := CachedData.Data;
+    Exit(True);
+  end;
+
   FillChar(TZI, SizeOf(TZI), 0);
   KeyName := TZ_KEY + Name;
   with TRegistry.Create do
@@ -497,6 +525,8 @@ begin
     TZI.DaylightBias := RegTZI.DaylightBias;
 
     Result := True;
+
+    FCacheTZI.AddOrSetValue(Year, TExpirable<TTimeZoneInformation>.Box(TZI));
   finally
     Free;
   end;
@@ -558,6 +588,7 @@ var
   llTime: Int64;
   SysTime: TSystemTime;
   ftTemp: TFileTime;
+  year: Word;
 begin
   llTime := 0;
   if (not GetDaylightDisabled) and (pTZinfo^.DaylightDate.wMonth <> 0) then
@@ -580,38 +611,52 @@ begin
     if (not IsLocal) then
     begin
       llTime := PInt64(lpFileTime)^;
-      Dec(llTime, Int64(pTZinfo^.Bias + pTZinfo^.DaylightBias) * 600000000);
+      Dec(llTime, Int64(pTZinfo^.Bias) * 600000000);
       PInt64(@ftTemp)^ := llTime;
       lpFileTime := @ftTemp;
     end;
 
     FileTimeToSystemTime(lpFileTime^, SysTime);
-
-    (* check for daylight savings *)
-    Ret := DayLightCompareDate(@SysTime, @pTZinfo^.StandardDate);
-    if (Ret = -2) then
-    begin
-      Result := TIME_ZONE_ID_INVALID;
-      Exit;
-    end;
-
-    BeforeStandardDate := Ret < 0;
+    year := SysTime.wYear;
 
     if (not IsLocal) then
     begin
-      Dec(llTime, Int64(pTZinfo^.StandardBias - pTZinfo^.DaylightBias) * 600000000);
+      Dec(llTime, Int64(pTZinfo^.DaylightBias) * 600000000);
       PInt64(@ftTemp)^ := llTime;
       FileTimeToSystemTime(lpFileTime^, SysTime);
     end;
 
-    Ret := DayLightCompareDate(@SysTime, @pTZinfo^.DaylightDate);
-    if (Ret = -2) then
+    (* check for daylight savings *)
+    if (year = SysTime.wYear) then
     begin
-      Result := TIME_ZONE_ID_INVALID;
-      Exit;
+      ret := DayLightCompareDate(@SysTime, @pTZinfo.StandardDate);
+      if (ret = -2) then
+      begin
+        Result := TIME_ZONE_ID_INVALID;
+        Exit;
+      end;
+      beforeStandardDate := ret < 0;
+    end else
+      beforeStandardDate := SysTime.wYear < year;
+
+    if (not islocal) then
+    begin
+      Dec(llTime, (pTZinfo.StandardBias - pTZinfo.DaylightBias) * 600000000);
+      PInt64(@ftTemp)^ := llTime;
+      FileTimeToSystemTime(lpFileTime^, SysTime);
     end;
 
-    AfterDaylightDate := Ret >= 0;
+    if (year = SysTime.wYear) then
+    begin
+      ret := DayLightCompareDate(@SysTime, @pTZinfo.DaylightDate);
+      if (ret = -2) then
+      begin
+        Result := TIME_ZONE_ID_INVALID;
+        Exit;
+      end;
+      afterDaylightDate := ret >= 0;
+    end else
+      afterDaylightDate := SysTime.wYear > year;
 
     Result := TIME_ZONE_ID_STANDARD;
     if pTZinfo^.DaylightDate.wMonth < pTZinfo^.StandardDate.wMonth then
@@ -1371,6 +1416,19 @@ begin
   Exit;
 error:
   Result := False;
+end;
+
+{ TSuperTimeZone.TExpirable<T> }
+
+class function TSuperTimeZone.TExpirable<T>.Box(Data: T): TExpirable<T>;
+begin
+  Result.Data := Data;
+  Result.Timestamp := Now;
+end;
+
+function TSuperTimeZone.TExpirable<T>.IsValid: Boolean;
+begin
+  Result := Trunc(Self.Timestamp) = Trunc(Now);
 end;
 
 end.
