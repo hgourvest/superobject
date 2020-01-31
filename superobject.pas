@@ -776,9 +776,14 @@ type
   TClassAttribute = class(TCustomAttribute)
   strict private
     FElements: TClassElements;
+    FIgnoredName: string;
+
   public
     constructor Create(const Value: cardinal); overload;
-    constructor Create(const Elements: TClassElements); overload;
+    constructor Create(const Value: cardinal; const ignoredName: string); overload;
+    constructor Create(const Elements: TClassElements; const ignoredName: string); overload;
+
+    function isIgnoredName(const aName: string): boolean;
 
     property Elements: TClassElements read FElements;
   end;
@@ -797,6 +802,7 @@ type
   private
     class function isArrayExportable(const aMember: TRttiMember): boolean;
     class function isExportable(const aType: TRttiType; const Element: TClassElement): boolean;
+    class function isIgnoredName(const aType: TRttiType; const rttiMember: TRttiMember): boolean;
     class function isIgnoredObject(r: TRttiObject): boolean;
     class function GetObjectName(r: TRttiNamedObject): string;
     class function GetObjectDefault(r: TRttiObject; const obj: ISuperObject): ISuperObject;
@@ -5922,18 +5928,36 @@ end;
 constructor TClassAttribute.Create(const Value: Cardinal);
 begin
   if(value and cst_ce_property=cst_ce_property) then
-    Create([ceProperty])
+    Create([ceProperty], '')
   else
   begin
-    Create([]);
+    Create([], '');
   end;
 end;
 
-constructor TClassAttribute.Create(const Elements: TClassElements);
+constructor TClassAttribute.Create(const Value: Cardinal; const ignoredName: string);
+begin
+  if(value and cst_ce_property=cst_ce_property) then
+    Create([ceProperty], ignoredName)
+  else
+  begin
+    Create([], ignoredName);
+  end;
+end;
+
+constructor TClassAttribute.Create(const Elements: TClassElements; const ignoredName: string);
 begin
   inherited Create;
+  self.FIgnoredName:=ignoredName;
   FElements:=Elements;
 end;
+
+function TClassAttribute.isIgnoredName(const aName: string): boolean;
+begin
+  result:=uppercase(FIgnoredName)=uppercase(aName);
+end;
+
+
 
 class function TSuperRttiContext.isArrayExportable(const aMember: TRttiMember): boolean;
 var
@@ -5961,6 +5985,19 @@ begin
   end;
 
   Result := element=ceField;
+end;
+
+class function TSuperRttiContext.isIgnoredName(const aType: TRttiType; const rttiMember: TRttiMember): boolean;
+var
+  o: TCustomAttribute;
+begin
+  for o in aType.GetAttributes do
+  begin
+    if o is TClassAttribute then
+      Exit(TClassAttribute(o).isIgnoredName(rttiMember.Name));
+  end;
+
+  Result := false;
 end;
 
 class function TSuperRttiContext.isIgnoredObject(r: TRttiObject): boolean;
@@ -6589,7 +6626,7 @@ function TSuperRttiContext.ToJson(var value: TValue; const index: ISuperObject):
 
         if isExportable(Context.GetType(Value.AsObject.ClassType), ceField) then
           for f in Context.GetType(Value.AsObject.ClassType).GetFields do
-            if (not isIgnoredObject(f)) and (f.FieldType <> nil) then
+            if (not isIgnoredObject(f)) and (f.FieldType <> nil) and (not isIgnoredName(Context.GetType(Value.AsObject.ClassType), f)) then
             begin
               v := f.GetValue(Value.AsObject);
               if isArrayExportable(f) then
@@ -6600,7 +6637,7 @@ function TSuperRttiContext.ToJson(var value: TValue; const index: ISuperObject):
 
         if isExportable(Context.GetType(Value.AsObject.ClassType), ceProperty) then
           for p in Context.GetType(Value.AsObject.ClassType).GetProperties do
-            if (not isIgnoredObject(p)) and (p.PropertyType <> nil) then
+            if (not isIgnoredObject(p)) and (p.PropertyType <> nil) and (not isIgnoredName(Context.GetType(Value.AsObject.ClassType), p)) then
             begin
               v := p.GetValue(Value.AsObject);
 
