@@ -781,7 +781,7 @@ type
   public
     constructor Create(const Value: cardinal); overload;
     constructor Create(const Value: cardinal; const ignoredName: string); overload;
-    constructor Create(const Elements: TClassElements; const ignoredName: string); overload;
+    constructor Create(const Elements: TClassElements; const ignoredName: string = ''); overload;
 
     function isIgnoredName(const aName: string): boolean;
 
