@@ -1468,6 +1468,11 @@ function serialfromboolean(ctx: TSuperRttiContext; const obj: ISuperObject; var 
 var
   o: ISuperObject;
 begin
+  if obj = nil then
+  begin
+    TValueData(Value).FAsSLong := ord(False);
+    Exit(True);
+  end;
   case ObjectGetType(obj) of
   stBoolean:
     begin
@@ -1483,8 +1488,20 @@ begin
     begin
       o := SO(obj.AsString);
       if not ObjectIsType(o, stString) then
-        Result := serialfromboolean(ctx, SO(obj.AsString), Value) else
-        Result := False;
+        Result := serialfromboolean(ctx, SO(obj.AsString), Value)
+      else
+      begin
+        if SameText(obj.AsString, 'True') then
+        begin
+          TValueData(Value).FAsSLong := ord(True);
+          Result := True;
+        end else if SameText(obj.AsString, 'False') then
+        begin
+          TValueData(Value).FAsSLong := ord(False);
+          Result := True;
+        end else
+          Result := False;
+      end;
     end;
   else
     Result := False;
