@@ -816,6 +816,7 @@ function SO(const Args: array of const): ISuperObject; overload;
 
 function SA(const Args: array of const): ISuperObject; overload;
 function SA(const AStrings: TStringDynArray): ISuperObject; overload;
+function SA(const AStrings: TArray<string>): ISuperObject; overload;
 
 function TryObjectToDate(const obj: ISuperObject; var dt: TDateTime): Boolean;
 function UUIDToString(const g: TGUID): SOString;
@@ -1074,6 +1075,15 @@ begin
 end;
 
 function SA(const AStrings: TStringDynArray): ISuperObject; overload;
+var
+  i: integer;
+begin
+  Result := TSuperObject.Create(stArray);
+  for i := 0 to High(AStrings) do
+   Result.AsArray.Add(TSuperObject.Create(AStrings[i]));
+end;
+
+function SA(const AStrings: TArray<string>): ISuperObject; overload;
 var
   i: integer;
 begin
@@ -1687,6 +1697,7 @@ destructor TSuperEnumerator.Destroy;
 begin
   if FObjEnum <> nil then
     FObjEnum.Free;
+  inherited;
 end;
 
 function TSuperEnumerator.MoveNext: Boolean;
@@ -5899,6 +5910,7 @@ begin
   SerialFromJson.Free;
   SerialToJson.Free;
   Context.Free;
+  inherited;
 end;
 
 class function TSuperRttiContext.GetFieldName(r: TRttiField): string;
