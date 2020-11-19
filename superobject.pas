@@ -6267,7 +6267,8 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
               v := TValue.Empty;
               if p.PropertyType.ClassType<>TRttiMethodType then
                 if FromJson(p.PropertyType.Handle, getObjectDefault(p, obj.AsObject[GetObjectName(p)]), v) then
-                  p.SetValue(Value.AsObject, v);
+                  if p.IsWritable then
+                    p.SetValue(Value.AsObject, v);
             end;
         end;
       stNull:
