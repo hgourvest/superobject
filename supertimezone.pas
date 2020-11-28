@@ -7,6 +7,27 @@ uses
   supertypes;
 
 type
+  _TIME_DYNAMIC_ZONE_INFORMATION = record
+    Bias: Longint;
+    StandardName: array [0..31] of WCHAR;
+    StandardDate: SYSTEMTIME;
+    StandardBias: Longint;
+    DaylightName: array [0..31] of WCHAR;
+    DaylightDate: SYSTEMTIME;
+    DaylightBias: Longint;
+    TimeZoneKeyName: array [0..127] of WCHAR;
+    DynamicDaylightTimeDisabled: BOOL;
+  end;
+  TDynamicTimeZoneInformation = _TIME_DYNAMIC_ZONE_INFORMATION;
+  DYNAMIC_TIME_ZONE_INFORMATION = _TIME_DYNAMIC_ZONE_INFORMATION;
+  PDynamicTimeZoneInformation = ^TDynamicTimeZoneInformation;
+  TGetDynamicTimeZoneInformation =
+    function (var pTimeZoneInformation: DYNAMIC_TIME_ZONE_INFORMATION): DWORD; stdcall;
+  function GetDynamicTimeZoneInformation(var pTimeZoneInformation: DYNAMIC_TIME_ZONE_INFORMATION): DWORD; stdcall;
+  external 'kernel32' name 'GetDynamicTimeZoneInformation';
+
+
+type
   TSuperTimeZone = class
   private
     const
