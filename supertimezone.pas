@@ -7,7 +7,7 @@ unit supertimezone;
 interface
 
 uses
-  {$IFDEF MSWINDOWS}
+  {$IFNDEF FPC}
   Windows,
   {$ENDIF}
   Registry, SysUtils, Math, Generics.Collections,
@@ -24,7 +24,7 @@ type
       TZ_KEY     = '\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones\';
       TZ_KEYNAME = 'TimeZoneKeyName';
   private type
-    {$IFDEF MSWINDOWS}
+    {$IFNDEF FPC}
     TExpirable<T> = record
       Timestamp: TDateTime;
       Data: T;
@@ -34,14 +34,14 @@ type
     {$ENDIF}
   private
     FName: SOString;
-    {$IFDEF MSWINDOWS}
+    {$IFNDEF FPC}
     FDaylightDisabled: TExpirable<Boolean>;
     FCacheTZI: TDictionary<Word, TExpirable<TTimeZoneInformation>>;
     {$ENDIF}
 
     function GetName: SOString;
 
-    {$IFDEF MSWINDOWS}
+    {$IFNDEF FPC}
     { Windows Internals }
     function TzSpecificLocalTimeToSystemTime(
       const lpTimeZoneInformation: PTimeZoneInformation;
@@ -91,7 +91,7 @@ type
 
     { TZ Info }
     class function GetCurrentTimeZone: SOString;
-    {$IFDEF MSWINDOWS}
+    {$IFNDEF FPC}
     function GetTimeZoneInformation(Year: Word; var TZI: TTimeZoneInformation): Boolean;
     {$ENDIF}
     function GetDaylightDisabled: Boolean;
@@ -102,7 +102,7 @@ type
     class property Zone[const TimeZoneName: string]: TSuperTimeZone read GetSuperTimeZoneInstance;
   end;
 
-{$IFDEF MSWINDOWS}
+{$IFNDEF FPC}
   {$WARN SYMBOL_PLATFORM OFF}
 
 (* NOT DST Aware *)
@@ -119,7 +119,6 @@ function _TzSpecificLocalTimeToSystemTime(
 
 (* EXtended version - DST Aware *)
 
-{$IFNDEF FPC}
 { Windows 7+ }
 function _TzSpecificLocalTimeToSystemTimeEx(
   const lpTimeZoneInformation: PDynamicTimeZoneInformation;
@@ -129,7 +128,6 @@ function _TzSpecificLocalTimeToSystemTimeEx(
 function _SystemTimeToTzSpecificLocalTimeEx(
   const lpTimeZoneInformation: PDynamicTimeZoneInformation;
    const lpUniversalTime: PSystemTime; var lpLocalTime: TSystemTime): BOOL; stdcall; external kernel32 name 'SystemTimeToTzSpecificLocalTimeEx'{$IFNDEF FPC} delayed{$ENDIF};
-{$ENDIF}
 
 { Convert Local <=> UTC for specific time-zones using the Windows API only. NOT Guaranteed to work }
 
@@ -267,7 +265,7 @@ constructor TSuperTimeZone.Create(const TimeZoneName: SOString);
 begin
   inherited Create;
   FName := TimeZoneName;
-  {$IFDEF MSWINDOWS}
+  {$IFNDEF FPC}
   FDaylightDisabled := TExpirable<Boolean>.Box(GetDaylightDisabled);
   FCacheTZI := TDictionary<Word, TExpirable<TTimeZoneInformation>>.Create;
   {$ENDIF}
@@ -275,19 +273,19 @@ end;
 
 destructor TSuperTimeZone.Destroy;
 begin
-  {$IFDEF MSWINDOWS}
+  {$IFNDEF FPC}
   FCacheTZI.Free;
   {$ENDIF}
 end;
 
 function TSuperTimeZone.LocalToUTC(const DelphiDateTime: TDateTime): TDateTime;
-{$IFDEF MSWINDOWS}
+{$IFNDEF FPC}
 var
   local, utc: TSystemTime;
   tzi: TTimeZoneInformation;
-  {$ENDIF}
+{$ENDIF}
 begin
-  {$IFDEF MSWINDOWS}
+  {$IFNDEF FPC}
   DateTimeToSystemTime(DelphiDateTime, local);
   if GetTimeZoneInformation(local.wYear, tzi) and TzSpecificLocalTimeToSystemTime(@tzi, local, utc) then
     Result := SystemTimeToDateTime(utc)
@@ -297,13 +295,13 @@ begin
 end;
 
 function TSuperTimeZone.UTCToLocal(const DelphiDateTime: TDateTime): TDateTime;
-{$IFDEF MSWINDOWS}
+{$IFNDEF FPC}
 var
   utc, local: TSystemTime;
   tzi: TTimeZoneInformation;
-  {$ENDIF}
+{$ENDIF}
 begin
-  {$IFDEF MSWINDOWS}
+  {$IFNDEF FPC}
   DateTimeToSystemTime(DelphiDateTime, utc);
   if GetTimeZoneInformation(utc.wYear, tzi) and SystemTimeToTzSpecificLocalTime(@tzi, utc, local) then
     Result := SystemTimeToDateTime(local)
@@ -313,13 +311,13 @@ begin
 end;
 
 function TSuperTimeZone.DelphiToJava(const DelphiDateTime: TDateTime): Int64;
-{$IFDEF MSWINDOWS}
+{$IFNDEF FPC}
 var
   local, utc, st: TSystemTime;
   tzi: TTimeZoneInformation;
-  {$ENDIF}
+{$ENDIF}
 begin
-{$IFDEF MSWINDOWS}
+  {$IFNDEF FPC}
   DateTimeToSystemTime(DelphiDateTime, local);
   if GetTimeZoneInformation(local.wYear, tzi) and TzSpecificLocalTimeToSystemTime(@tzi, local, utc) then
     st := utc
@@ -330,13 +328,13 @@ begin
 end;
 
 function TSuperTimeZone.JavaToDelphi(const JavaDateTime: Int64): TDateTime;
-{$IFDEF MSWINDOWS}
+{$IFNDEF FPC}
 var
   utc, local: TSystemTime;
   tzi: TTimeZoneInformation;
-  {$ENDIF}
+{$ENDIF}
 begin
-{$IFDEF MSWINDOWS}
+  {$IFNDEF FPC}
   DateTimeToSystemTime(25569 + (JavaDateTime / 86400000), utc);
   if GetTimeZoneInformation(utc.wYear, tzi) and SystemTimeToTzSpecificLocalTime(@tzi, utc, local) then
     Result := SystemTimeToDateTime(local)
@@ -352,14 +350,14 @@ const
   TZ_Fmt  = '%s%.2d:%.2d';
 var
   local, utc: TSystemTime;
-  {$IFDEF MSWINDOWS}
+  {$IFNDEF FPC}
   tzi: TTimeZoneInformation;
   {$ENDIF}
   bias: TDateTime;
   h, m, d: Word;
   iso: SOString;
 begin
-{$IFDEF MSWINDOWS}
+  {$IFNDEF FPC}
   DateTimeToSystemTime(DelphiDateTime, local);
   iso := Format(ISO_Fmt, [
     local.wYear, local.wMonth, local.wDay,
@@ -395,7 +393,7 @@ end;
 
 function TSuperTimeZone.ISO8601ToJava(const ISO8601Date: string;
   out JavaDateTime: Int64): Boolean;
-{$IFDEF MSWINDOWS}
+{$IFNDEF FPC}
 var
   st: TSystemTime;
   dayofyear: Integer;
@@ -408,7 +406,7 @@ var
   DayTable: PDayTable;
   {$ENDIF}
 begin
-{$IFDEF MSWINDOWS}
+  {$IFNDEF FPC}
   if ParseISO8601Date(ISO8601Date, st, dayofyear, week, bias, havetz, havedate) then
   begin
     if (not havetz) and GetTimeZoneInformation(st.wYear, tzi) and TzSpecificLocalTimeToSystemTime(@tzi, st, utc) then
@@ -482,7 +480,7 @@ function TSuperTimeZone.GetDaylightDisabled: Boolean;
 var
   KeyName: SOString;
 begin
-  {$IFDEF MSWINDOWS}
+  {$IFNDEF FPC}
   if FDaylightDisabled.IsValid then
     Exit(FDaylightDisabled.Data);
   {$ENDIF}
@@ -498,7 +496,7 @@ begin
         Result := ReadBool('IsObsolete');
       CloseKey;
     end;
-    {$IFDEF MSWINDOWS}
+    {$IFNDEF FPC}
     FDaylightDisabled := TExpirable<Boolean>.Box(Result);
     {$ENDIF}
   finally
@@ -506,7 +504,7 @@ begin
   end;
 end;
 
-{$IFDEF MSWINDOWS}
+{$IFNDEF FPC}
 function TSuperTimeZone.GetTimeZoneInformation(Year: Word;
   var TZI: TTimeZoneInformation): Boolean;
 type
@@ -1499,7 +1497,7 @@ error:
   Result := False;
 end;
 
-{$IFDEF MSWINDOWS}
+{$IFNDEF FPC}
 { TSuperTimeZone.TExpirable<T> }
 
 class function TSuperTimeZone.TExpirable<T>.Box(Data: T): TExpirable<T>;
