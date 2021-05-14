@@ -6390,7 +6390,7 @@ function TSuperRttiContext.FromJson(TypeInfo: PTypeInfo; const obj: ISuperObject
 
   procedure FromDynArray;
   var
-    i: Integer;
+    i: NativeInt;
     p: Pointer;
     pb: PByte;
     val: TValue;
