@@ -1,3 +1,5 @@
+## This project is not maintained!
+
 # SuperObject
 
 ## What is JSON ?
