@@ -13,7 +13,7 @@ type
   PtrUInt = UInt64;
 {$ELSE}
   PtrInt = longint;
-  PtrUInt = Longword;
+  PtrUInt = FixedUInt;
 {$ENDIF}
 {$ENDIF}
   SuperInt = Int64;

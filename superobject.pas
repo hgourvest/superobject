@@ -119,7 +119,8 @@ unit superobject;
 
 interface
 uses
-  Classes, supertypes, Variants
+  Classes, supertypes, Variants,
+  System.SyncObjs
 {$IFDEF HAVE_RTTI}
   ,Generics.Collections, RTTI, TypInfo
 {$ENDIF}
@@ -130,7 +131,7 @@ const
   SUPER_TOKENER_MAX_DEPTH = 32;
 
   SUPER_AVL_MAX_DEPTH = sizeof(longint) * 8;
-  SUPER_AVL_MASK_HIGH_BIT = not ((not longword(0)) shr 1);
+  SUPER_AVL_MASK_HIGH_BIT = not ((not FixedUInt(0)) shr 1);
 
 type
   // forward declarations
@@ -364,16 +365,17 @@ type
     property size: integer read FSize;
   end;
 
+  TSocket = longint;
   TSuperWriterSock = class(TSuperWriter)
   private
-    FSocket: longint;
+    FSocket: TSocket;
     FSize: Integer;
   public
     function Append(buf: PSOChar; Size: Integer): Integer; override;
     function Append(buf: PSOChar): Integer; override;
     procedure Reset; override;
-    constructor Create(ASocket: longint); reintroduce; virtual;
-    property Socket: longint read FSocket;
+    constructor Create(ASocket: TSocket); reintroduce; virtual;
+    property Socket: TSocket read FSocket;
     property Size: Integer read FSize;
   end;
 
@@ -548,7 +550,7 @@ type
     function Write(writer: TSuperWriter; indent: boolean; escape: boolean; level: integer): Integer;
     function SaveTo(stream: TStream; indent: boolean = false; escape: boolean = true): integer; overload;
     function SaveTo(const FileName: string; indent: boolean = false; escape: boolean = true): integer; overload;
-    function SaveTo(socket: longint; indent: boolean = false; escape: boolean = true): integer; overload;
+    function SaveTo(socket: TSocket; indent: boolean = false; escape: boolean = true): integer; overload;
     function CalcSize(indent: boolean = false; escape: boolean = true): integer;
 
     // convert
@@ -639,8 +641,8 @@ type
 {$ELSE}
     function QueryInterface(const IID: TGUID; out Obj): HResult; virtual; stdcall;
 {$ENDIF}
-    function _AddRef: Integer; virtual; {$IFDEF UNIX}cdecl{$ELSE}stdcall{$ENDIF};
-    function _Release: Integer; virtual; {$IFDEF UNIX}cdecl{$ELSE}stdcall{$ENDIF};
+    function _AddRef: Integer; virtual; stdcall;
+    function _Release: Integer; virtual; stdcall;
 
     function GetO(const path: string): ISuperObject;
     procedure PutO(const path: string; const Value: ISuperObject);
@@ -673,7 +675,7 @@ type
     // Writers
     function SaveTo(stream: TStream; indent: boolean = false; escape: boolean = true): integer; overload;
     function SaveTo(const FileName: string; indent: boolean = false; escape: boolean = true): integer; overload;
-    function SaveTo(socket: longint; indent: boolean = false; escape: boolean = true): integer; overload;
+    function SaveTo(socket: TSocket; indent, escape: boolean): integer; overload;
     function CalcSize(indent: boolean = false; escape: boolean = true): integer;
     function AsJSon(indent: boolean = false; escape: boolean = true): string;
 
@@ -885,8 +887,7 @@ uses
   Windows,
   {$ENDIF}
   superdate
-{$IFDEF FPC}
-  ,sockets
+{$IFDEF LINUX}
 {$ELSE}
   ,WinSock
 {$ENDIF}
@@ -2208,7 +2209,7 @@ end;
 
 procedure TSuperObject.AfterConstruction;
 begin
-  InterlockedDecrement(FRefCount);
+  TInterlocked.Decrement(FRefCount);
 end;
 
 procedure TSuperObject.BeforeDestruction;
@@ -3388,7 +3389,7 @@ begin
   pb.Free;
 end;
 
-function TSuperObject.SaveTo(socket: Integer; indent, escape: boolean): integer;
+function TSuperObject.SaveTo(socket: TSocket; indent, escape: boolean): integer;
 var
   pb: TSuperWriterSock;
 begin
@@ -4311,12 +4312,12 @@ end;
 
 function TSuperObject._AddRef: Integer;
 begin
-  Result := InterlockedIncrement(FRefCount);
+  Result := TInterlocked.Increment(FRefCount);
 end;
 
 function TSuperObject._Release: Integer;
 begin
-  Result := InterlockedDecrement(FRefCount);
+  Result := TInterlocked.Decrement(FRefCount);
   if Result = 0 then
     Destroy;
 end;
@@ -4882,8 +4883,8 @@ var
   i: Integer;
 begin
   if Size = 1 then
-{$IFDEF FPC}
-    Result := fpsend(FSocket, buf, size, 0) else
+{$IFDEF LINUX}
+//    Result := fpsend(FSocket, buf, size, 0) else
 {$ELSE}
     Result := send(FSocket, buf^, size, 0) else
 {$ENDIF}
@@ -4894,8 +4895,8 @@ begin
     try
       for i :=  0 to Size - 1 do
         pBuffer[i] := AnsiChar(buf[i]);
-{$IFDEF FPC}
-      Result := fpsend(FSocket, pBuffer, size, 0);
+{$IFDEF LINUX}
+//      Result := fpsend(FSocket, pBuffer, size, 0);
 {$ELSE}
       Result := send(FSocket, pBuffer^, size, 0);
 {$ENDIF}
@@ -4912,7 +4913,7 @@ begin
   Result := Append(buf, StrLen(buf));
 end;
 
-constructor TSuperWriterSock.Create(ASocket: Integer);
+constructor TSuperWriterSock.Create(ASocket: TSocket);
 begin
   inherited Create;
   FSocket := ASocket;
